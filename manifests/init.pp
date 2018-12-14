@@ -51,7 +51,7 @@ class win_dhcp_server (
   }
 
   #1./set Database options.
-  class { win_dhcp_server::global::database:
+  class { 'win_dhcp_server::global::database':
     database_filename             => $database_filename,
     database_backup_path          => $database_backup_path,
     database_backup_interval_min  => $database_backup_interval_min,
@@ -61,7 +61,7 @@ class win_dhcp_server (
   }
 
   #2./set Auditing Options.
-  class { win_dhcp_server::global::audit:
+  class { 'win_dhcp_server::global::audit':
     auditlog_enable             => $auditlog_enable,
     auditlog_path               => $auditlog_path,
     auditlog_max_size_mb        => $auditlog_max_size_mb,
@@ -72,7 +72,7 @@ class win_dhcp_server (
   }
 
   #3./set global general settings
-  class { win_dhcp_server::global::general:
+  class { 'win_dhcp_server::global::general':
     nap_enable                  => $nap_enable,
     nps_unreachable_action      => $nps_unreachable_action,
     activate_policies           => $activate_policies,
@@ -82,7 +82,7 @@ class win_dhcp_server (
   }
 
   #4./set mac filterlist state
-  class { win_dhcp_server::global::filterlist:
+  class { 'win_dhcp_server::global::filterlist':
     enable_v4_allow => $enable_v4_allow_filter_list,
     enable_v4_deny  => $enable_v4_deny_filter_list,
   }
