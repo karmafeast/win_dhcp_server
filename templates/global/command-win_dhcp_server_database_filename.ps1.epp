@@ -1,0 +1,7 @@
+<%- | String $dbpath | -%>
+import-module dhcpserver;
+$dbpath = '<%= $dbpath %>';
+Write-Output "Setting DHCP Server database file path >> ${dbpath}";
+Set-DhcpServerDatabase -FileName $dbpath -Confirm:$false;
+Write-Output "Restarting DHCP Server Service...";
+Restart-Service dhcpserver;

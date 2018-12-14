@@ -1,0 +1,12 @@
+<%- |
+String[1] $policy_name,
+String[1] $scope_id
+| -%>
+import-module dhcpserver;
+[String]$PolicyName = '<%= $policy_name %>';
+[String]$ScopeId = '<%= $scope_id %>';
+
+try{$existingPolicy = Get-DhcpServerv4Policy -ScopeId $ScopeId -Name $PolicyName -ErrorAction Stop;}
+catch [Exception]{exit 0;}
+
+if($null -ne $existingPolicy){exit 1;}

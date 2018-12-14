@@ -1,0 +1,5 @@
+<%- | String $servicename | -%>
+[String]$servicename = '<%= $servicename %>';
+$var = (get-service $servicename -ErrorAction SilentlyContinue);
+if($null -eq $var){exit 1;}
+exit 0;

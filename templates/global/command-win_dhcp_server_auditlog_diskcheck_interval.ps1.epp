@@ -1,0 +1,7 @@
+<%- | Integer $auditlog_diskcheck_interval | -%>
+import-module dhcpserver;
+[Int32]$auditlog_diskcheck_interval = <%= $auditlog_diskcheck_interval %>;
+Write-Output "Setting DHCP Server Audit log disk check interval >> ${auditlog_diskcheck_interval}";
+Set-DhcpServerAuditLog -DiskCheckInterval $auditlog_diskcheck_interval -Confirm:$false;
+Write-Output "Restarting DHCP Server Service...";
+Restart-Service dhcpserver;

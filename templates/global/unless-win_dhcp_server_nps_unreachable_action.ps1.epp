@@ -1,0 +1,9 @@
+<%- |
+Enum['Full', 'Restricted', 'NoAccess'] $nps_unreachable_action
+| -%>
+import-module dhcpserver;
+[String]$NpsUnreachableAction = '<%= $nps_unreachable_action %>';
+
+$existingSetting = (Get-DhcpServerSetting).NpsUnreachableAction;
+
+if($NpsUnreachableAction -ne $existingSetting){exit 1;}

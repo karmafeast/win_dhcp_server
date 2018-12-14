@@ -1,0 +1,25 @@
+<%- |
+String[1] $scope_id,
+String $start_range,
+String $end_range
+| -%>
+import-module dhcpserver;
+[String]$scopeId = '<%= $scope_id %>';
+[String]$startRange = '<%= $start_range %>';
+[String]$endRange = '<%= $end_range %>';
+
+$existingExclusions = Get-DhcpServerv4ExclusionRange -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingExclusions){exit 0;}
+
+#exclusions exist, practitioner wants absent on the scopeID, kill all existing exclusion ranges, so trigger 'command'
+if(($startRange.Length -eq 0) -and ($endRange.Length -eq 0)){exit 1;}
+
+foreach($exclusion in $existingExclusions){
+  if(($exclusion.StartRange.IPAddressToString -eq $startRange) -and ($exclusion.EndRange.IPAddressToString -eq $endRange))
+  {
+    exit 1;
+  }
+}
+
+exit 0;

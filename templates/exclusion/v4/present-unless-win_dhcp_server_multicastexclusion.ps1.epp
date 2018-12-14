@@ -1,0 +1,89 @@
+<%- |
+String[1] $scope_name,
+String[1] $start_range,
+String[1] $end_range
+| -%>
+import-module dhcpserver;
+[String]$scopeName = '<%= $scope_name %>';
+[String]$startRange = '<%= $start_range %>';
+[String]$endRange = '<%= $end_range %>';
+
+function Get-IPrange {
+    param([string]$start, [string]$end, [string]$ip, [string]$mask, [int]$cidr)
+    function IP-toINT64 () {
+        param($ip)
+        $octets = $ip.split(".");
+        return [int64]([int64]$octets[0] * 16777216 + [int64]$octets[1] * 65536 + [int64]$octets[2] * 256 + [int64]$octets[3]);
+    }
+
+    function INT64-toIP() {
+        param([int64]$int)
+        return (([math]::truncate($int / 16777216)).tostring() + "." + ([math]::truncate(($int % 16777216) / 65536)).tostring() + "." + ([math]::truncate(($int % 65536) / 256)).tostring() + "." + ([math]::truncate($int % 256)).tostring());
+    }
+
+    if ($ip) {$ipaddr = [Net.IPAddress]::Parse($ip); }
+    if ($cidr) {$maskaddr = [Net.IPAddress]::Parse((INT64-toIP -int ([convert]::ToInt64(("1" * $cidr + "0" * (32 - $cidr)), 2)))); }
+    if ($mask) {$maskaddr = [Net.IPAddress]::Parse($mask); }
+    if ($ip) {$networkaddr = new-object net.ipaddress ($maskaddr.address -band $ipaddr.address); }
+    if ($ip) {$broadcastaddr = new-object net.ipaddress (([system.net.ipaddress]::parse("255.255.255.255").address -bxor $maskaddr.address -bor $networkaddr.address)); }
+
+    if ($ip) {$startaddr = IP-toINT64 -ip $networkaddr.ipaddresstostring; $endaddr = IP-toINT64 -ip $broadcastaddr.ipaddresstostring; }
+    else {$startaddr = IP-toINT64 -ip $start; $endaddr = IP-toINT64 -ip $end; }
+
+    for ($i = $startaddr; $i -le $endaddr; $i++) { INT64-toIP -int $i; }
+}
+
+function IPtoUInt32 {
+    param([String]$IPAddress)
+    [IPAddress]$ip = $IPAddress;
+    $bytes = $ip.GetAddressBytes()
+    if ([BitConverter]::IsLittleEndian) {[Array]::Reverse($bytes);}
+    return [BitConverter]::ToUInt32($bytes, 0);
+}
+
+function IsRangeValid {
+  param([string]$ScopeName, [string]$DesiredStart, [string]$DesiredEnd)
+  $existingScope = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+  if ($null -eq $existingScope) {return $false; }
+
+  $intDesiredStart = IPtoUInt32 -IPAddress $DesiredStart;
+  $intDesiredEnd = IPtoUInt32 -IPAddress $DesiredEnd;
+  $intScopeMin = IPToUint32 -IPAddress $existingScope.StartRange;
+  $intScopeMax = IPToUint32 -IPAddress $existingScope.EndRange;
+  if($intDesiredStart -gt $intDesiredEnd){return $false;}
+  if(($intDesiredStart -ge $intScopeMin) -and ($intDesiredStart -le $intScopeMax) -and ($intDesiredEnd -ge $intScopeMin) -and ($intDesiredEnd -le $intScopeMax)){
+    return $true;
+  }
+  return $false;
+}
+
+$existingScope = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existingScope){
+  Write-Error "No IPV4 multicast scope found, cannot manage exclusions for scope name: ${ScopeName}";
+  exit 1;
+}
+
+$existingExclusions = Get-DhcpServerv4MulticastExclusionRange -Name $ScopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existingExclusions){
+  if(IsRangeValid -ScopeName $ScopeName -DesiredStart $startRange -DesiredEnd $endRange){
+    exit 1;
+  }
+  else {
+      Write-Error "IPv4 Exclusion range invalid for scope ID: ${ScopeId}, desired start: ${startRange}, desired end: ${endRange}";
+      exit 1;
+  }
+}
+else {
+  if(IsRangeValid -ScopeName $scopeName -DesiredStart $startRange -DesiredEnd $endRange){
+    foreach($exclusion in $existingExclusions){
+      if(($exclusion.StartRange -eq $startRange) -and ($exclusion.EndRange -eq $endRange)){exit 0;}
+    }
+    exit 1;
+  }
+  else {
+      Write-Error "IPv4 multicast Exclusion range invalid for scope ID: ${ScopeName}, desired start: ${startRange}, desired end: ${endRange}";
+      exit 1;
+  }
+}

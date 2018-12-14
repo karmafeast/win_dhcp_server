@@ -1,0 +1,7 @@
+<%- | Integer $majorversion | -%>
+import-module dhcpserver;
+[Int32]$majorversion = <%= $majorversion %>;
+[Int32]$probeval = (Get-Module DhcpServer).Version.Major;
+if($null -eq $probeval){exit 1;}
+if($probeval -lt $majorversion){exit 1;}
+exit 0;

@@ -1,0 +1,9 @@
+<%- |
+String[1] $scope_name,
+| -%>
+import-module dhcpserver;
+[String]$ScopeName = '<%= $scope_name %>';
+
+$existing = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+if($null -ne $existing){exit 1;}
+exit 0;

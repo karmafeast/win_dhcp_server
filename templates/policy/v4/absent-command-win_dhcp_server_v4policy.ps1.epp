@@ -1,0 +1,19 @@
+<%- |
+String[1] $policy_name,
+String[1] $scope_id
+| -%>
+import-module dhcpserver;
+[String]$PolicyName = '<%= $policy_name %>';
+[String]$ScopeId = '<%= $scope_id %>';
+
+try{$existingPolicy = Get-DhcpServerv4Policy -ScopeId $ScopeId -Name $PolicyName -ErrorAction Stop;}
+catch [Exception]{
+  Write-Warning ("logic error in unless, no policy '{0} in '{1}' exists for ensure => absent command." -f $PolicyName, $ScopeId);
+  exit 1;
+}
+
+try{Remove-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -Confirm:$false -ErrorAction Stop;}
+catch [Exception]{
+  Write-Warning ("Unable to remove v4Policy name: '{0}' in '{1}'" -f $PolicyName, $ScopeId);
+  exit 1;
+}

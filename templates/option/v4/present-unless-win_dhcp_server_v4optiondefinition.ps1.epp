@@ -1,0 +1,66 @@
+<%- |
+Integer[1, 255] $option_id,
+String[1] $definition_name,
+Enum['Byte', 'Word', 'DWord', 'DWordDword', 'IPAddress', 'String', 'BinaryData', 'EncapsulatedData', 'IPv6Address'] $value_data_type,
+Optional[Array[String[1]]] $default_value = undef,
+Optional[String] $description             = undef,
+Optional[Boolean] $multivalued            = undef,
+Optional[String[1]] $vendor_class         = undef
+| -%>
+
+import-module dhcpserver;
+[Int32]$OptionId = <%= $option_id %>;
+[String]$DefinitionName = '<%= $definition_name %>';
+[String]$ValueDataType = '<%= $value_data_type %>';
+<% if $default_value { -%>
+[String[]]$DefaultValue = @(<%= $default_value.map |$x|{ "'$x'"}.join(', ') %>);
+<% } else { -%>
+$DefaultValue = $null;
+<% } -%>
+<% if $description { -%>
+[String]$Description = '<%= $description %>';
+<% } else { -%>
+$Description = $null;
+<% } -%>
+<% if $multivalued { -%>
+[Boolean]$MultiValued = $<%= $multivalued %>;
+<% } else { -%>
+$MultiValued = $null;
+<% } -%>
+<% if $vendor_class { -%>
+[String]$VendorClass = '<%= $vendor_class %>';
+<% } else { -%>
+$VendorClass = $null;
+<% } -%>
+
+if($null -ne $VendorClass){
+  try{$existingClass = Get-DhcpServerv4Class -Name $VendorClass -ErrorAction Stop;}
+  catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+}
+
+$existingDefinition = Get-DhcpServerv4OptionDefinition -VendorClass $VendorClass -optionid $OptionId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingDefinition){exit 1;}
+
+if($existingDefinition.Name -ne $DefinitionName){exit 1;}
+
+if($null -ne $MultiValued){
+  if($existingDefinition.MultiValued -ne $MultiValued){exit 1;}
+}
+
+if($null -ne $Description){
+  if($existingDefinition.Description -ne $Description){exit 1;}
+}
+
+if($null -ne $DefaultValue){
+  if($null -ne (Compare-Object -ReferenceObject $existingDefinition.DefaultValue -DifferenceObject $DefaultValue)){exit 1;}
+}
+else {
+  if($null -ne (Compare-Object -ReferenceObject $existingDefinition.DefaultValue -DifferenceObject @(''))){exit 1;}
+}
+
+
+
+
+
+

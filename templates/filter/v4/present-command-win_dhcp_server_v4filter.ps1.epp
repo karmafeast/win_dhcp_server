@@ -1,0 +1,35 @@
+<%- |
+Enum['Allow', 'Deny'] $list,
+Array[String[1]] $mac_addresses,
+Optional[String] $description = undef
+| -%>
+import-module dhcpserver;
+[String]$List = '<%= $list %>';
+[String[]]$MacAddresses = @(<%= $mac_addresses.map |$x| { "'$x'" }.join(', ') %>);
+<% if $description { -%>
+[String]$Description = '<%= $description %>'
+<% } else { -%>
+$Description = $null;
+<% } -%>
+$existingEntries = Get-DhcpServerv4Filter -list $list;
+
+if($null -eq $existingEntries){
+  foreach($mac in $MacAddresses){
+    Add-DhcpServerv4Filter -List $List -MacAddress $MacAddresses -Description $Description -Force -Confirm:$false;
+  }
+}
+
+foreach($mac in $MacAddresses){
+  if ($existingEntries.MacAddress -contains $mac){
+    if($null -ne $Description){
+      if((Get-DhcpServerv4Filter -List $List | Where 'MacAddress' -eq $mac).Description -ne $Description){
+        Add-DhcpServerv4Filter -List $List -MacAddress $mac -Description $Description -Force -Confirm:$false;
+        Write-Output "Added '${mac}' to IPv4 filter '${list}' list. Changed description: '${Description}'";
+      }
+    }
+  }
+  else {
+      Add-DhcpServerv4Filter -List $List -MacAddress $mac -Description $Description -Force -Confirm:$false;
+      Write-Output "Added '${mac}' to IPv4 filter '${list}' list as new list entry. description: '${Description}'";
+  }
+}

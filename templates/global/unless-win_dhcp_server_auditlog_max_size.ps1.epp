@@ -1,0 +1,9 @@
+<%- | Integer $auditlog_max_size_mb | -%>
+import-module dhcpserver;
+[Int32]$auditlog_max_size_mb = <%= $auditlog_max_size_mb %>;
+[Int32]$existing = (Get-DhcpServerAuditLog).MaxMBFileSize;
+if($existing -ne $auditlog_max_size_mb){
+Write-Ouput "Improper Audit Log max size: ${existing} - expected ${auditlog_max_size_mb}"
+exit 1;
+}
+exit 0;

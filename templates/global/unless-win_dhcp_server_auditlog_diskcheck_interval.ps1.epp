@@ -1,0 +1,9 @@
+<%- | Integer $auditlog_diskcheck_interval | -%>
+import-module dhcpserver;
+[Int32]$auditlog_diskcheck_interval = <%= $auditlog_diskcheck_interval %>;
+[Int32]$existing = (Get-DhcpServerAuditLog).DiskCheckInterval;
+if($existing -ne $auditlog_diskcheck_interval){
+write-output "Improper Audit Log disk check interval: ${existing} - expected ${auditlog_diskcheck_interval}";
+exit 1;
+}
+exit 0;

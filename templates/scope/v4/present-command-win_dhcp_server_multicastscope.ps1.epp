@@ -1,0 +1,175 @@
+<%- |
+String[1] $scope_name,
+String[1] $start_range,
+String[1] $end_range,
+Optional[String] $description = undef,
+Optional[String[1]] $expiry_time = undef,
+Optional[String[1]] $lease_duration = undef,
+Optional[Enum['Active', 'InActive']] $active_state = undef,
+Optional[Integer[1, 255]] $ttl = undef,
+| -%>
+function IPtoUInt32 {
+    param([String]$IPAddress)
+    [IPAddress]$ip = $IPAddress;
+    $bytes = $ip.GetAddressBytes()
+    if ([BitConverter]::IsLittleEndian) {[Array]::Reverse($bytes);}
+    return [BitConverter]::ToUInt32($bytes, 0);
+}
+
+function Remove-OverlappingMulticastScope {
+    param([string]$DesiredStart, [string]$DesiredEnd)
+    $currentScopes = Get-DhcpServerv4MulticastScope -ErrorAction SilentlyContinue;
+    if ($null -eq $currentScopes) {return; }
+    [Uint32]$intDesiredStart = IPtoUInt32 -IPAddress $DesiredStart;
+    [Uint32]$intDesiredEnd = IPtoUInt32 -IPAddress $DesiredEnd;
+  foreach ($existingScope in $currentScopes) {
+    [Uint32]$intExistingStart = IPtoUInt32 -IPAddress $existingScope.StartRange;
+    [Uint32]$intExistingEnd = IPtoUInt32 -IPAddress $existingScope.EndRange;
+    [bool]$remove = $false;
+    if(($intDesiredStart -ge $intExistingStart) -and ($intDesiredStart -le $intExistingEnd)){$remove = $true;}
+    if(($inDesiredEnd -ge $intExistingStart) -and ($intDesiredEnd -le $intExistingEnd)){$remove = $true;}
+    if(($intExistingStart -ge $intDesiredStart) -and ($intExistingStart -le $intDesiredEnd)){$remove = $true;}
+    if(($intExistingEnd -ge $intDesiredStart) -and ($intExistingEnd -le $intDesiredEnd)){$remove = $true;}
+    if($remove){
+      Remove-DhcpServerv4MulticastScope -Name $existingScope.Name -Force -Confirm:$false;
+      Write-Warning ("REMOVED EXISTING OVERLAPPED MULTICAST SCOPE - name: '{0}', start: {1}, end: {2}" -f $existingScope.Name, $existingScope.StartRange, $existingScope.EndRange);
+    }
+  }
+}
+
+
+import-module dhcpserver;
+[String]$ScopeName = '<%= $scope_name %>';
+[String]$StartRange = '<%= $start_range %>';
+[String]$EndRange = '<%= $end_range %>';
+<% if $description { -%>
+[String]$Description = '<%= $description %>';
+<% } else { -%>
+[String]$Description = '';
+<% } -%>
+<% if $expiry_time { -%>
+[String]$ExpiryTime = '<%= $expiry_time %>';
+<% } else { -%>
+$ExpiryTime = $null;
+<% } -%>
+<% if $lease_duration { -%>
+[String]$LeaseDuration = '<%= $lease_duration %>';
+<% } else { -%>
+$LeaseDuration = $null;
+<% } -%>
+<% if $active_state { -%>
+[String]$ActiveState = '<%= $active_state %>';
+<% } else { -%>
+[String]$ActiveState = 'Active';
+<% } -%>
+<% if $ttl { -%>
+[String]$Ttl = <%= $ttl %>;
+<% } else { -%>
+$Ttl = $null;
+<% } -%>
+
+$multicastregex = '^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$';
+
+if(!($StartRange -match $multicastregex) -or !($EndRange -match $multicastregex)){
+  Write-Error "no valid multicast IPv4 specified. valid is 224.0.0.0-239.255.255.255. got start: ${StartRange}, end: ${EndRange}";
+  exit 1;
+}
+
+#this is destructive to non-managed config / and will remove something preventing this resources creation due to range overlap
+Remove-OverlappingMulticastScope -Desiredstart $StartRange -DesiredEnd $EndRange;
+
+$existing = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  if($null -ne $ExpiryTime){
+    try{Add-DhcpServerv4MulticastScope -Name $ScopeName -StartRange $StartRange -EndRange $EndRange -State $ActiveState -ExpiryTime $ExpiryTime -Confirm:$false -ErrorAction Stop;}
+    catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+  }
+  else{
+    try{Add-DhcpServerv4MulticastScope -Name $ScopeName -StartRange $StartRange -EndRange $EndRange -State $ActiveState -Confirm:$false -ErrorAction Stop;}
+    catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+  }
+    Write-Output "Added new IPv4 multicast scope: '${ScopeName}' - start: ${StartRange}, end: ${EndRange}";
+}
+
+$existing = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Error "got no existing multicast scope name: ${ScopeName} after potential create from null. cannot continue";
+  exit 1;
+}
+
+#cannot set expiry on existing it seems, delete and recreate if not match, 'infinite' is null on backend object
+if($null -ne $ExpiryTime){
+  if($null -eq $existing.ExpiryTime){
+    Remove-DhcpServerv4MulticastScope -Name $ScopeName -Force -Confirm:$false;
+    try{Add-DhcpServerv4MulticastScope -Name $ScopeName -StartRange $StartRange -EndRange $EndRange -State $ActiveState -ExpiryTime $ExpiryTime -Confirm:$false -ErrorAction Stop;}
+    catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+    Write-Warning "recreated IPv4 multicast scope: '${ScopeName}', due to mismatch on expiry time. desired: ${ExpiryTime}";
+  }
+  else{
+    [System.DateTime]$existingExpiry = (Get-DhcpServerv4MulticastScope -Name $ScopeName).ExpiryTime;
+    [System.DateTime]$targetExpiry = $ExpiryTime; #ctor from the string casts OK
+    if($existingExpiry -ne $targetExpiry){
+      Remove-DhcpServerv4MulticastScope -Name $ScopeName -Force -Confirm:$false;
+      try{Add-DhcpServerv4MulticastScope -Name $ScopeName -StartRange $StartRange -EndRange $EndRange -State $ActiveState -ExpiryTime $ExpiryTime -Confirm:$false -ErrorAction Stop;}
+      catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+      Write-Warning "recreated IPv4 multicast scope: '${ScopeName}', due to mismatch on expiry time. desired: ${ExpiryTime}";
+    }
+  }
+}
+else{
+  #target expiry time is null, check the existing to see if one set and fix if so
+  if($null -ne $existing.ExpiryTime){
+    try{Add-DhcpServerv4MulticastScope -Name $ScopeName -StartRange $StartRange -EndRange $EndRange -State $ActiveState -Confirm:$false -ErrorAction Stop;}
+    catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+    Write-Warning "recreated IPv4 multicast scope: '${ScopeName}', due to mismatch on expiry time. desired: Infinite";
+  }
+}
+
+$existing = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Error "got no existing multicast scope name: ${ScopeName} after potential re-create due to scope expiry time mismatch. cannot continue";
+  exit 1;
+}
+
+if($null -ne $LeaseDuration){
+  [System.TimeSpan]$existingLeaseDuration = (Get-DhcpServerv4MulticastScope -Name $ScopeName).LeaseDuration;
+  [System.TimeSpan]$targetLeaseDuration = $LeaseDuration;
+  if($existingLeaseDuration -ne $targetLeaseDuration){
+    Set-DhcpServerv4MulticastScope -Name $ScopeName -LeaseDuration $LeaseDuration -Confirm:$false;
+    Write-Output ("Changed Lease Duration on IPv4 multicast scope name: '{0}'. desired: {1}, got: {2}" -f $ScopeName, $LeaseDuration, $existing.LeaseDuration.ToString());
+  }
+}
+else{
+  #existing lease duration should be 30.00:00:00 - the default
+  if($existing.LeaseDuration.ToString() -ne '30.00:00:00'){
+    Set-DhcpServerv4MulticastScope -Name $ScopeName -LeaseDuration '30.00:00:00' -Confirm:$false;
+    Write-Output "Changed Lease Duration on IPv4 multicast scope name: '${ScopeName}', to default, due to no data for param. default is '30.00:00:00'";
+  }
+}
+
+if($Ttl -ne $null){
+  if($existing.Ttl -ne $Ttl){
+    Set-DhcpServerv4MulticastScope -Name $ScopeName -Ttl $Ttl -Confirm:$false;
+    Write-Output ("Changed TTL on IPv4 multicast scope name: '{0}', due to mismatch. desired: {1}, got: {2}" -f $ScopeName, $Ttl, $existing.Ttl);
+  }
+}
+else{
+  #default is 32
+  if($existing.Ttl -ne 32){
+    Set-DhcpServerv4MulticastScope -Name $ScopeName -Ttl 32 -Confirm:$false;
+    Write-Output "Changed TTL on IPv4 multicast scope name: '${ScopeName}', due to no data for param. set default: 32";
+  }
+}
+
+if($existing.State -ne $ActiveState){
+  Set-DhcpServerv4MulticastScope -Name $ScopeName -State $ActiveState -Confirm:$false;
+  Write-Warning ("Set Active State on IPv4 multicast scope name: '{0}'. desired: '{1}', got '{2}'" -f $ScopeName, $ActiveState, $existing.State);
+}
+
+if($existing.Description -ne $Description){
+  Set-DhcpServerv4MulticastScope -Name $ScopeName -Description $Description -Confirm:$false;
+  Write-Output "Set description on IPv4 multicast scope name: '${ScopeName}' desired: '${Description}'";
+}

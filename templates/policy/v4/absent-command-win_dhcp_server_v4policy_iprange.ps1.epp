@@ -1,0 +1,53 @@
+<%- |
+String[1] $policy_name,
+String[1] $scope_id,
+Optional[String[1]] $start_range     = undef,
+Optional[String[1]] $end_range       = undef
+| -%>
+import-module dhcpserver;
+[String]$PolicyName = '<%= $policy_name %>';
+[String]$ScopeId = '<%= $scope_id %>';
+<% if $start_range { -%>
+[String]$StartRange = '<%= $start_range %>'
+<% } else { -%>
+$StartRange = $null;
+<% } -%>
+<% if $end_range { -%>
+[String]$EndRange = '<%= $end_range %>'
+<% } else { -%>
+$EndRange = $null;
+<% } -%>
+
+try{$existingPolicyRanges = Get-DhcpServerv4PolicyIPRange -ScopeId $ScopeId -Name $PolicyName -ErrorAction Stop;}
+catch [Exception]{
+  #scope or policy may not exist for ensure => absent, this ok, just exit
+  exit 0;
+}
+
+if($null -eq $existingPolicyRanges){
+  Write-Warning ("no existing policy ip ranges in scope id: '{0}' for policy: '{1}', unexpected command execution" -f $ScopeId);
+  exit 1;
+} #unless shouldnt have put us here.
+
+if(($null -eq $StartRange) -and ($null -eq $EndRange)){
+  #remove all ip policy ranges in policy on scope id
+  Remove-DhcpServerv4PolicyIPRange -Name $PolicyName -ScopeId $ScopeId -Confirm:$false;
+  Write-Output ("Removed {0} IP policy ranges from policy: '{1}', in scope id: '{2}'" -f $existingPolicyRanges.Count, $PolicyName, $ScopeId);
+  exit 0;
+}
+
+if($null -eq $StartRange){
+  #we would have exited already if $EndRange were $null in this scope - remove by end range
+  if($existingPolicyRanges.EndRange -contains $EndRange){
+    Remove-DhcpServerv4PolicyIPRange -Name $PolicyName -ScopeId $ScopeId -EndRange $EndRange -Confirm:$false;
+    Write-Output ("Removed IP policy ranges from policy: '{0}', in scope id: '{1}' by endrange: '{2}'" -f $PolicyName, $ScopeId, $EndRange);
+    exit 0;
+  }
+}
+else {
+  if(($existingPolicyRanges.EndRange -contains $EndRange) -and ($existingPolicyRanges.StartRange -contains $StartRange)){
+    Remove-DhcpServerv4PolicyIPRange -Name $PolicyName -ScopeId $ScopeId -StartRange $StartRange -EndRange $EndRange -Confirm:$false;
+    Write-Output ("Removed IP policy ranges from policy: '{0}', in scope id: '{1}' by startrange: '{2}', endrange: '{3}'" -f $PolicyName, $ScopeId, $StartRange, $EndRange);
+    exit 0;
+  }
+}

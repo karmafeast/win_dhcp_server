@@ -1,0 +1,50 @@
+<%- |
+String[1] $superscope_name,
+Array[String[1]] $scope_ids,
+| -%>
+import-module dhcpserver;
+
+[String]$SuperscopeName = '<%= $superscope_name %>';
+[Array]$ScopeIds = @(<%= $scope_ids.map |$x|{ "'$x'"}.join(', ') %>);
+
+$existing =  Get-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  try{Add-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -ScopeId $ScopeIds -Force -Confirm:$false -ErrorAction Stop}
+  catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+
+  $flattened = "@(";foreach($s in $ScopeIds){$flattened = $flattened + "'${s}',"}; $flattened = $flattened.trimend(',') + ")";
+  Write-Output "Added DHCP v4 SuperScope with name: ${SuperscopeName}, scope ids: ${flattened}";
+  exit 0;
+}
+
+[System.Collections.Arraylist]$existingScopeId = [System.Collections.Arraylist]::new();
+foreach($item in (Get-DhcpServerv4SuperScope -SuperScopeName $SuperscopeName).ScopeId){$existingScopeId.Add($item.IpAddressToString) > $null;}
+
+#powershell is loose enough to allow us to compare string elements of an array list versus a string array
+$compareResults = Compare-Object -ReferenceObject $existingScopeId -DifferenceObject $ScopeIds;
+
+if($null -eq $compareResults){
+  Write-Warning "Command exec fired for DHCPv4 Super Scope, while compare of existing scope ID collection to desired showed identical, super scope name: ${SuperscopeName}, logic error";
+  exit 1;
+}
+
+foreach($compare in $compareResults){
+  switch($compare.SideIndicator){
+    '=>'{ #its in the desired state collection, but not in existing
+      try{Add-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -ScopeId $compare.InputObject -Force -Confirm:$false -ErrorAction Stop;}
+      catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+      Write-Output ("Added scope id: {0} to IPv4 superscope: {1}" -f $Compare.InputObject, $SuperscopeName);
+    }
+    '<='{ #its in the existing, but not in the desired state collection
+      try{Remove-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -ScopeId $compare.InputObject -Confirm:$false -ErrorAction Stop;}
+      catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+      Write-Output ("Removed scope id: {0} from IPv4 superscope: {1}" -f $Compare.InputObject, $SuperscopeName);
+    }
+    default{
+      Write-Error ("Logic error in case selection for compare state on Scope Id: {0}" -f $compare.InputObject);
+      exit 1;
+    }
+  }
+}
+

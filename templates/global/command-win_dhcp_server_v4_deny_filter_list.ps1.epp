@@ -1,0 +1,6 @@
+<%- | Boolean $enable_v4_deny_filter_list | -%>
+import-module dhcpserver;
+[Boolean]$EnableList = $<%= $enable_v4_deny_filter_list %>;
+
+Set-DhcpServerv4FilterList -Deny $EnableList -Confirm:$false;
+Write-Warning ("Set DHCP Server GLOBAL MAC DENY filterlist enable state: '{0}'" -f $EnableList);

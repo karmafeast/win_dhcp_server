@@ -1,0 +1,13 @@
+<%- | Boolean $auditlog_enable | -%>
+import-module dhcpserver;
+[Boolean]$auditlog_enable = $<%= $auditlog_enable %>;
+$isEnabled = (Get-DhcpServerAuditLog).Enable;
+if($null -eq $isEnabled){
+Write-Output "null value for (Get-DhcpServerAuditLog).Enable - considering improper."
+exit 1;
+}
+if($isEnabled -ne $auditlog_enable){
+Write-Output "Improper configuration for Audit Log Enable. value: ${isEnabled} - expected: ${auditlog_enable}"
+exit 1;
+}
+exit 0;

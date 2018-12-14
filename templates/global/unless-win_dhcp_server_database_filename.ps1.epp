@@ -1,0 +1,9 @@
+<%- | String $dbpath | -%>
+import-module dhcpserver;
+[String]$dbpath = '<%= $dbpath %>';
+[String]$existing = (Get-DhcpServerDatabase).FileName
+if($existing -ne $dbpath){
+Write-Output "Improper DHCP Server database file path: '${existing}' - expected '${dbpath}'";
+exit 1;
+}
+exit 0;

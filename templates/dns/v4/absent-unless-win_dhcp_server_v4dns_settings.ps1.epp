@@ -1,0 +1,82 @@
+<%- |
+Optional[String[1]] $scope_id = undef,
+Optional[String[1]] $reserved_ip = undef,
+Optional[String[1]] $policy_name = undef
+| -%>
+import-module dhcpserver;
+<% if $scope_id { -%>
+[String]$ScopeId = '<%= $scope_id %>';
+<% } else { -%>
+$ScopeId = $null;
+<% } -%>
+<% if $reserved_ip { -%>
+[String]$ReservedIP = '<%= $reserved_ip %>';
+<% } else { -%>
+$ReservedIP = $null;
+<% } -%>
+<% if $policy_name { -%>
+[String]$PolicyName = '<%= $policy_name %>';
+<% } else { -%>
+$PolicyName = $null;
+<% } -%>
+
+[String[]]$compareProperties =  @('DynamicUpdates','DnsSuffix','DisableDnsPtrRRUpdate','NameProtection');
+
+if(($null -ne $ReservedIP) -and ($null -ne $PolicyName)){
+  Write-Warning ("must not target reserved_ip and policy_name together. ip: '{0}', policy name: '{1}'. cannot continue." -f $ReservedIP, $PolicyName);
+  exit 1;
+}
+
+if(($null -ne $ReservedIP) -and ($null -ne $ScopeId)){
+  Write-Warning ("must not target reserved_ip and scope_id together. ip: '{0}', scope id: '{1}'" -f $ReservedIP, $ScopeId);
+  exit 1;
+}
+
+try{$serverSettings = Get-DhcpServerv4DnsSetting -ErrorAction Stop;}
+catch [Exception]{
+  Write-Warning ("unable to obtain server settings. cannot continue - {0}" -f $_.Exception.Message);
+  exit 1;
+}
+
+$desiredConfig = @{
+  DynamicUpdates = $serverSettings.DynamicUpdates;
+  DeleteDnsRROnLeaseExpiry = $serverSettings.DeleteDnsRROnLeaseExpiry;
+  UpdateDnsRRForOlderClients = $serverSettings.UpdateDnsRRForOlderClients;
+  DnsSuffix = $serverSettings.DnsSuffix;
+  DisableDnsPtrRRUpdate = $serverSettings.DisableDnsPtrRRUpdate;
+  NameProtection = $serverSettings.NameProtection;
+}
+
+$existingSettingsExpression = "Get-DhcpServerv4DnsSetting";
+$targetingFragment = "";
+if($null -ne $ScopeId){
+  $targetingFragment = $targetingFragment + " -ScopeId '${ScopeId}'";
+}
+if($null -ne $PolicyName){
+  $targetingFragment = $targetingFragment + " -PolicyName '${PolicyName}'";
+}
+if($null -ne $ReservedIP){
+  $targetingFragment = $targetingFragment + " -IPAddress '${ReservedIP}'";
+}
+$existingSettingsExpression = $existingSettingsExpression + $targetingFragment + " -ErrorAction Stop";
+
+try{$existingSettings = Invoke-Expression -Command $existingSettingsExpression;}
+catch [Exception]{
+  Write-Warning ("unable to obtain existing settings at target '{0}'. cannot continue - {1}" -f $targetingFragment, $_.Exception.Message);
+  exit 1;
+}
+
+[Boolean]$nameProtectionLinkedChange = ($desiredConfig.DeleteDnsRROnLeaseExpiry -ne $existingSettings.DeleteDnsRROnLeaseExpiry -and $null -ne $desiredConfig.DeleteDnsRROnLeaseExpiry) -or
+    ($desiredConfig.UpdateDnsRRForOlderClients -ne $existingSettings.UpdateDnsRRForOlderClients -and $null -ne $desiredConfig.UpdateDnsRRForOlderClients);
+
+if(($null -ne $ReservedIp) -and ($existingSettings.NameProtection) -and $nameProtectionLinkedChange){
+  Write-Warning ("must not change name protection on reserved ip, required for linked properties set. ip: '{0}', address scope, policy or server config to change" -f $ReservedIP);
+  exit 1;
+}
+if($nameProtectionLinkedChange){exit 1;}
+
+foreach($property in $compareProperties){
+  if($null -ne $desiredConfig.$property){
+    if($existingSettings.$property -ne $desiredConfig.$property){exit 1;}
+  }
+}

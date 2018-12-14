@@ -1,0 +1,16 @@
+<%- |
+Boolean $activate_policies
+| -%>
+import-module dhcpserver;
+[Boolean]$ActivatePolicies = $<%= $activate_policies %>;
+
+$existingSetting = (Get-DhcpServerSetting).ActivatePolicies;
+
+if($ActivatePolicies -ne $existingSetting){
+  try{Set-DhcpServerSetting -ActivatePolicies $ActivatePolicies -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("unable to set desired config for 'ActivatePolicies', existing value: '{0}', desired: '{1}' - {2}" -f $existingSetting, $ActivatePolicies, $_.Exception.Message);
+    exit 1;
+  }
+  Write-Output ("set desired config for 'ActivatePolicies', existing value: '{0}', desired: '{1}'" -f $existingSetting, $ActivatePolicies);
+}

@@ -1,0 +1,90 @@
+<%- |
+String[1] $policy_name,
+String[1] $scope_id,
+String[1] $start_range,
+String[1] $end_range
+| -%>
+
+function Get-IPrange {
+    param([string]$start, [string]$end, [string]$ip, [string]$mask, [int]$cidr)
+    function IP-toINT64 () {
+        param($ip)
+        $octets = $ip.split(".");
+        return [int64]([int64]$octets[0] * 16777216 + [int64]$octets[1] * 65536 + [int64]$octets[2] * 256 + [int64]$octets[3]);
+    }
+
+    function INT64-toIP() {
+        param([int64]$int)
+        return (([math]::truncate($int / 16777216)).tostring() + "." + ([math]::truncate(($int % 16777216) / 65536)).tostring() + "." + ([math]::truncate(($int % 65536) / 256)).tostring() + "." + ([math]::truncate($int % 256)).tostring());
+    }
+
+    if ($ip) {$ipaddr = [Net.IPAddress]::Parse($ip); }
+    if ($cidr) {$maskaddr = [Net.IPAddress]::Parse((INT64-toIP -int ([convert]::ToInt64(("1" * $cidr + "0" * (32 - $cidr)), 2)))); }
+    if ($mask) {$maskaddr = [Net.IPAddress]::Parse($mask); }
+    if ($ip) {$networkaddr = new-object net.ipaddress ($maskaddr.address -band $ipaddr.address); }
+    if ($ip) {$broadcastaddr = new-object net.ipaddress (([system.net.ipaddress]::parse("255.255.255.255").address -bxor $maskaddr.address -bor $networkaddr.address)); }
+
+    if ($ip) {$startaddr = IP-toINT64 -ip $networkaddr.ipaddresstostring; $endaddr = IP-toINT64 -ip $broadcastaddr.ipaddresstostring; }
+    else {$startaddr = IP-toINT64 -ip $start; $endaddr = IP-toINT64 -ip $end; }
+
+    for ($i = $startaddr; $i -le $endaddr; $i++) { INT64-toIP -int $i; }
+}
+
+function Remove-OverlappingIPPolicyRanges {
+    param([String]$PolicyName, [string]$ScopeId, [string]$Desiredstart, [string]$DesiredEnd)
+    $currentPolicyRanges = Get-DhcpServerv4PolicyIpRange -ScopeId $scopeId -ErrorAction SilentlyContinue;
+    if ($null -eq $currentPolicyRanges) {return; }
+    $DesiredRange = Get-IpRange -start $Desiredstart -end $DesiredEnd;
+    foreach ($policyIpRange in $currentPolicyRanges) {
+        $compare = compare-object -referenceobject $DesiredRange -DifferenceObject (Get-IPrange -start $policyIpRange.StartRange -end $policyIpRange.EndRange) -IncludeEqual;
+        for ($i = 0; $i -lt $compare.length; $i++) {
+            if ($compare[$i].SideIndicator -eq '==') {
+                $removedstart = $policyIpRange.startrange;
+                $removedend = $policyIpRange.endrange;
+                Remove-DhcpServerv4PolicyIPRange -Name $policyIpRange.Name -ScopeId $ScopeId -StartRange $policyIpRange.StartRange -EndRange $policyIpRange.EndRange -Confirm:$false;
+                Write-Warning "WARNING - CLEARED EXISTING OVERLAPPED POLICY IP RANGE RANGE - name: ${PolicyName}, scope ID: ${ScopeId}, start: ${removedstart}, end: ${removedend}";
+                break;
+            }
+        }
+    }
+}
+
+import-module dhcpserver;
+[String]$PolicyName = '<%= $policy_name %>';
+[String]$ScopeId = '<%= $scope_id %>';
+[String]$StartRange = '<%= $start_range %>'
+[String]$EndRange = '<%= $end_range %>'
+
+if($ScopeId -eq '0.0.0.0'){
+  Write-Warning ("cannot add ip range to policy on server/scope id: '0.0.0.0'! attempted misconfiguration. cannot continue. target policy name: '{0}'" -f $PolicyName);
+  exit 1;
+}
+
+try{$existingPolicy = Get-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId;}
+catch [Exception]{
+  Write-Warning ("No existing policy name: '{0}' in scope ID: '{1}', cannot continue for policy IP range." -f $PolicyName, $ScopeId);
+  exit 1;
+}
+
+#check existing policy for this proposed ip range, if has 'fqdn' set, or options set - then CANNOT add policy ip range - its a thing
+if($null -ne $existingPolicy.Fqdn){
+  Write-Warning ("cannot add ip range to policy with 'fqdn' in selection criteria! attempted misconfiguration. cannot continue. policy name: '{0}', scope id: '{1}'" -f $PolicyName, $ScopeId);
+  exit 1;
+}
+
+$existingPolicyRanges = Get-DhcpServerv4PolicyIPRange -ScopeId $ScopeId -Name $PolicyName -ErrorAction SilentlyContinue;
+
+if($null -eq $existingPolicyRanges){
+  Add-DhcpServerv4PolicyIPRange -Name $PolicyName -ScopeId $ScopeId -StartRange $StartRange -EndRange $EndRange -Confirm:$false;
+  Write-Output ("added ip range to policy: '{0}', scope id: '{1}', start: '{2}', end: '{3}'" -f $PolicyName, $ScopeId, $StartRange, $EndRange);
+  exit 0;
+}
+
+try{Remove-OverlappingIPPolicyRanges -PolicyName $PolicyName -ScopeId $ScopeId -Desiredstart $StartRange -DesiredEnd $EndRange -ErrorAction Stop;}
+catch [Exception]{
+  Write-Warning ("Error on check/remove overlapped policy IP ranges. desired policy name: '{0}, scope id: '{1}', start: '{2}', end: '{3}': {4}" -f $PolicyName, $ScopeId, $StartRange, $EndRange, $_.Exception.Message);
+  exit 1;
+}
+
+Add-DhcpServerv4PolicyIPRange -Name $PolicyName -ScopeId $ScopeId -StartRange $StartRange -EndRange $EndRange -Confirm:$false;
+Write-Output ("added ip range to policy: '{0}', scope id: '{1}', start: '{2}', end: '{3}'" -f $PolicyName, $ScopeId, $StartRange, $EndRange);

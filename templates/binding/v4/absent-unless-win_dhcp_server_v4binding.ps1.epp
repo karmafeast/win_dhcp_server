@@ -1,0 +1,14 @@
+<%- |
+String[1] $mac_address
+| -%>
+import-module dhcpserver;
+[String]$macAddress = '<%= $mac_address %>';
+
+$existingInterface = get-netadapter | where 'MacAddress' -eq $macAddress;
+if($null -eq $existingInterface){exit 0;} #ensure => absent, the interface might not exist, we dont care, theres no binding to this mac
+
+$existingBinding = Get-DhcpServerv4Binding | where 'InterfaceAlias' -eq $existingInterface.Name;
+
+if($null -eq $existingBinding){exit 0;}
+
+if($existingBinding.BindingState){exit 1;}

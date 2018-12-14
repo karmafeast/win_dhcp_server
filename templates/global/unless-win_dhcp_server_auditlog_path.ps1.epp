@@ -1,0 +1,9 @@
+<%- | String $auditlog_path | -%>
+import-module dhcpserver;
+[String]$auditlog_path = '<%= $auditlog_path %>';
+[String]$existing = (Get-DhcpServerAuditLog).Path
+if($existing -ne $auditlog_path){
+Write-Output "Improper Audit Log path: '${existing}' - expected '${auditlog_path}'"
+exit 1;
+}
+exit 0;

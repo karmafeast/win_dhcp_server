@@ -1,0 +1,36 @@
+<%- |
+String[1] $policy_name,
+String[1] $scope_id,
+Optional[String[1]] $start_range     = undef,
+Optional[String[1]] $end_range       = undef,
+| -%>
+import-module dhcpserver;
+[String]$PolicyName = '<%= $policy_name %>';
+[String]$ScopeId = '<%= $scope_id %>';
+<% if $start_range { -%>
+[String]$StartRange = '<%= $start_range %>'
+<% } else { -%>
+$StartRange = $null;
+<% } -%>
+<% if $end_range { -%>
+[String]$EndRange = '<%= $end_range %>'
+<% } else { -%>
+$EndRange = $null;
+<% } -%>
+
+try{$existingPolicyRanges = Get-DhcpServerv4PolicyIPRange -ScopeId $ScopeId -Name $PolicyName -ErrorAction Stop;}
+catch [Exception]{
+  #scope or policy may not exist for ensure => absent, this ok, just exit
+  exit 0;
+}
+
+if($null -eq $existingPolicyRanges){exit 0;}
+
+if(($null -eq $StartRange) -and ($null -eq $EndRange)){exit 1;}
+
+if($null -eq $StartRange){
+  if($existingPolicyRanges.EndRange -contains $EndRange){exit 1;}
+}
+else {
+  if(($existingPolicyRanges.EndRange -contains $EndRange) -and ($existingPolicyRanges.StartRange -contains $StartRange)){exit 1;}
+}

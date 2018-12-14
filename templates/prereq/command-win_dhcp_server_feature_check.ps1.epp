@@ -1,0 +1,3 @@
+<%- | String $winfeature | -%>
+Write-Error "PREREQS FAILED ON WINDOWS FEATURE CHECK - check for feature <%= $winfeature %>";
+exit 1;

@@ -1,0 +1,61 @@
+<%- |
+Enum['User', 'Vendor'] $class_type,
+String[1] $class_name,
+String[1] $class_data,
+Optional[String] $description = undef
+| -%>
+import-module dhcpserver;
+[String]$ClassType = '<%= $class_type %>';
+[String]$ClassName = '<%= $class_name %>';
+[String]$ClassData = '<%= $class_data %>'
+<% if $description { -%>
+[String]$Description = '<%= $description %>'
+<% } else { -%>
+$Description = $null;
+<% } -%>
+
+#description or data can be changed in place
+#other stuff is delete / recreate if in use for name or data with target values, or is mismatched type
+
+$existingClass = Get-DhcpServerv4Class | where 'AsciiData' -eq $ClassData -ErrorAction SilentlyContinue;
+
+if($null -ne $existingClass){
+  if(($existingClass.Name -ne $ClassName) -or ($existingClass.Type -ne $ClassType)){
+    Write-Warning ("AsciiData collision for IPv4 class. data: '{0}', existing name: '{1}', target name: '{2}', existing type: '{3}', target type: '{4}'" -f $ClassData, $existingClass.Name, $ClassName, $existingClass.Type, $ClassType);
+    Remove-DhcpServerv4Class -Name $existingClass.Name -Type $existingClass.Type -Confirm:$false;
+    Add-DhcpServerv4Class -Name $ClassName -Type $ClassType -Data $ClassData -Confirm:$false;
+    Write-Output ("add v4 class. name: '{0}', type: '{1}', ASCIIdata: '{2}'" -f $ClassName, $ClassType, $ClassData);
+  }
+}
+
+$existingClass = Get-DhcpServerv4Class -Name $ClassName -ErrorAction SilentlyContinue;
+
+if($null -ne $existingClass){
+  if($existingClass.Type -ne $ClassType){
+    Write-Warning ("type collision for IPv4 class. existing name: '{0}', target name: '{1}', existing type: '{2}', target type: '{3}'" -f $existingClass.Name, $ClassName, $existingClass.Type, $ClassType);
+    Remove-DhcpServerv4Class -Name $existingClass.Name -Type $existingClass.Type -Confirm:$false;
+    Add-DhcpServerv4Class -Name $ClassName -Type $ClassType -Data $ClassData -Confirm:$false;
+    Write-Output ("add v4 class. name: '{0}', type: '{1}', ASCIIdata: '{2}'" -f $ClassName, $ClassType, $ClassData);
+  }
+}
+
+$existingClass = Get-DhcpServerv4Class -Name $ClassName -ErrorAction SilentlyContinue;
+
+if($null -eq $existingClass){
+  Add-DhcpServerv4Class -Name $ClassName -Type $ClassType -Data $ClassData -Confirm:$false;
+  Write-Output ("add v4 class. name: '{0}', type: '{1}', ASCIIdata: '{2}'" -f $ClassName, $ClassType, $ClassData);
+}
+
+$existingClass = Get-DhcpServerv4Class -Name $ClassName -ErrorAction SilentlyContinue;
+if($null -eq $existingClass){Write-Error "IPv4 class should exist by this point on ensure => present. cannot continue."; exit 1;}
+
+if($existingClass.AsciiData -ne $ClassData){
+  Set-DhcpServerv4Class -Name $ClassName -Type $ClassType -Data $ClassData -Confirm:$false;
+}
+
+if($null -ne $Description){
+  if($existingClass.Description -ne $Description){
+    Set-DhcpServerv4Class -Name $ClassName -Type $ClassType -Description $Description -Confirm:$false;
+    Write-Output ("changed description on IPv4 class. name: '{0}', type: '{1}', expected description: '{2}', got: '{3}'" -f $ClassName, $ClassType, $Description, $existingClass.Description);
+  }
+}

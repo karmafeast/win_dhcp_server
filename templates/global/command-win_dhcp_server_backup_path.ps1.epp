@@ -1,0 +1,7 @@
+<%- | String $backuppath | -%>
+import-module dhcpserver;
+$backuppath = '<%= $backuppath %>';
+Write-Output "Setting DHCP Server database backup path >> '${backuppath}'";
+Set-DhcpServerDatabase -BackupPath $backuppath -Confirm:$false;
+Write-Output "Restarting DHCP Server Service...";
+Restart-Service dhcpserver;

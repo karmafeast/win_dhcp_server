@@ -1,0 +1,20 @@
+<%- |
+String[1] $mac_address
+| -%>
+import-module dhcpserver;
+[String]$macAddress = '<%= $mac_address %>';
+
+$existingInterface = get-netadapter | where 'MacAddress' -eq $macAddress;
+if($null -eq $existingInterface){exit 0;} #ensure => absent, the interface might not exist, we dont care, theres no binding to this mac
+
+$existingBinding = Get-DhcpServerv4Binding | where 'InterfaceAlias' -eq $existingInterface.Name;
+
+if($null -eq $existingBinding){exit 0;}
+
+if($existingBinding.BindingState){
+  try{Set-DhcpServerv4Binding -InterfaceAlias $existingInterface.Name -BindingState $false -Confirm:$false -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("unable to unbind interface from DHCPv4 with mac: '{0}', interface alias: '{1}' - {2}" -f $MacAddress, $existingInterface.Name, $_.Exception.Message);
+    exit 1;
+  }
+}

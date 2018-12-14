@@ -1,0 +1,62 @@
+<%- |
+Integer[1, 255] $option_id,
+Optional[String[1]] $policy_name = undef,
+Optional[String[1]] $reserved_ip = undef,
+Optional[String[1]] $scope_id = undef,
+Optional[String[1]] $user_class = undef,
+Optional[String[1]] $vendor_class = undef,
+| -%>
+import-module dhcpserver;
+[Int32]$OptionId = <%= $option_id %>;
+<% if $policy_name { -%>
+[String]$PolicyName = '<%= $policy_name %>'
+<% } else { -%>
+$PolicyName = $null;
+<% } -%>
+<% if $reserved_ip { -%>
+[String]$ReservedIP = '<%= $reserved_ip %>'
+<% } else { -%>
+$ReservedIP = $null;
+<% } -%>
+<% if $scope_id { -%>
+[String]$ScopeId = '<%= $scope_id %>'
+<% } else { -%>
+$ScopeId = $null;
+<% } -%>
+<% if $user_class { -%>
+[String]$UserClass = '<%= $user_class %>'
+<% } else { -%>
+$UserClass = $null;
+<% } -%>
+<% if $vendor_class { -%>
+[String]$VendorClass = '<%= $vendor_class %>'
+<% } else { -%>
+$VendorClass = $null;
+<% } -%>
+
+if(($null -ne $ScopeId) -and ($null -ne $ReservedIP)){
+  Write-Warning "Cannot specify BOTH scope_id and reserved_ip to an IPv4 Option Value, a reserved IP is in a scope already. check your data. cannot continue.";
+  exit 1;
+}
+
+if($null -ne $ReservedIP){
+  #reservation may not exist, option value may not exist as a result (unless should have not let us here if value not exist on reservation),
+  #as we are ensure => absent, we dont care - exit clean.
+  try{$existingValue = Get-DhcpServerv4OptionValue -vendorclass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -OptionId $OptionId -ReservedIP $ReservedIP -ErrorAction Stop;}
+  catch [Exception]{exit 0;}
+  try{Remove-DhcpServerv4OptionValue -VendorClass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -ReservedIP $ReservedIP -OptionId $OptionId -Confirm:$false -ErrorAction Stop;}
+  catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+  exit 0;
+}
+if($null -ne $ScopeId) {
+  try{$existingValue = Get-DhcpServerv4OptionValue -vendorclass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -OptionId $OptionId -ScopeId $ScopeId -ErrorAction Stop;}
+  catch [Exception]{exit 0;}
+  try{Remove-DhcpServerv4OptionValue -VendorClass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -ScopeId $ScopeId -OptionId $OptionId -Confirm:$false -ErrorAction Stop;}
+  catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+  exit 0;
+}
+
+try{$existingValue = Get-DhcpServerv4OptionValue -vendorclass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -OptionId $OptionId -ErrorAction Stop;}
+catch [Exception]{exit 0;}
+try{Remove-DhcpServerv4OptionValue -VendorClass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -OptionId $OptionId -Confirm:$false -ErrorAction Stop;}
+catch [Exception]{Write-Error $_.Exception.Message; exit 1;}

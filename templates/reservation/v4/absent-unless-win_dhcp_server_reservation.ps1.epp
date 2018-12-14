@@ -1,0 +1,37 @@
+<%- |
+String[1] $scope_id,
+String[1] $client_id,
+String $ipaddress
+| -%>
+import-module dhcpserver;
+[String]$ScopeId = '<%= $scope_id %>';
+[String]$ClientId = '<%= $client_id %>';
+[String]$IpAddress = '<%= $ipaddress %>';
+
+$existingScope = Get-DhcpServerv4Scope -ScopeId $ScopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingScope){
+  exit 0;
+}
+
+try{$existingReservations = Get-DhcpServerv4Reservation -ScopeId $ScopeId -ErrorAction SilentlyContinue;}catch{$existingReservations = $null}
+
+if($null -eq $existingReservations){exit 0;}
+
+foreach($reservation in $existingReservations){
+  if($reservation.clientId.ToLower() -eq $clientId.ToLower()){
+    if($ipaddress.Length -eq 0){
+      #just a client-id match on the ensure => absent, this is valid with backend
+      exit 1;
+    }
+    else {
+        if($reservation.IPAddress.IPAddressToString -eq $IpAddress){
+          exit 1;
+        }
+        else {
+          Write-Warning "Explicit matching for client ID + IP address specified to resource, client id reservation found, NOT match specified IP - scope ID: ${ScopeId}, clientId: ${ClientId}, expected IP: ${IpAddress}, mismatch found IP: ${reservation.IPAddress.IpAddressToString} - clean your data.";
+          exit 0;
+        }
+    }
+  }
+}

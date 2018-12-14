@@ -1,0 +1,7 @@
+<%- | String $auditlog_path | -%>
+import-module dhcpserver;
+[String]$auditlog_path = '<%= $auditlog_path %>';
+Write-Output "Setting DHCP Server Audit Log path >> '${auditlog_path}'";
+Set-DhcpServerAuditLog -Path "${auditlog_path}" -Confirm:$false;
+Write-Output "Restarting DHCP Server Service...";
+Restart-Service dhcpserver;

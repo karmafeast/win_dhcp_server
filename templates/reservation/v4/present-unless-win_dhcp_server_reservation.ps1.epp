@@ -1,0 +1,103 @@
+<%- |
+String[1] $scope_id,
+String[1] $client_id,
+String[1] $ipaddress,
+Optional[String[1]] $reservation_name = undef,
+Optional[String] $description = undef,
+Optional[Enum['Dhcp', 'Bootp', 'Both']] $reservation_type = undef
+| -%>
+import-module dhcpserver;
+[String]$ScopeId = '<%= $scope_id %>';
+[String]$ClientId = '<%= $client_id %>';
+[String]$IpAddress = '<%= $ipaddress %>';
+<% if $reservation_name { -%>
+[String]$ReservationName = '<%= $reservation_name %>';
+<% } else { -%>
+$ReservationName = $null;
+<% } -%>
+<% if $description { -%>
+[String]$Description = '<%= $description %>';
+<% } else { -%>
+$Description = $null;
+<% } -%>
+<% if $reservation_type { -%>
+[String]$ReservationType = '<%= $reservation_type %>';
+<% } else { -%>
+[String]$ReservationType = 'Both';
+<% } -%>
+
+function Get-IPrange {
+    param([string]$start, [string]$end, [string]$ip, [string]$mask, [int]$cidr)
+    function IP-toINT64 () {
+        param($ip)
+        $octets = $ip.split(".");
+        return [int64]([int64]$octets[0] * 16777216 + [int64]$octets[1] * 65536 + [int64]$octets[2] * 256 + [int64]$octets[3]);
+    }
+
+    function INT64-toIP() {
+        param([int64]$int)
+        return (([math]::truncate($int / 16777216)).tostring() + "." + ([math]::truncate(($int % 16777216) / 65536)).tostring() + "." + ([math]::truncate(($int % 65536) / 256)).tostring() + "." + ([math]::truncate($int % 256)).tostring());
+    }
+
+    if ($ip) {$ipaddr = [Net.IPAddress]::Parse($ip); }
+    if ($cidr) {$maskaddr = [Net.IPAddress]::Parse((INT64-toIP -int ([convert]::ToInt64(("1" * $cidr + "0" * (32 - $cidr)), 2)))); }
+    if ($mask) {$maskaddr = [Net.IPAddress]::Parse($mask); }
+    if ($ip) {$networkaddr = new-object net.ipaddress ($maskaddr.address -band $ipaddr.address); }
+    if ($ip) {$broadcastaddr = new-object net.ipaddress (([system.net.ipaddress]::parse("255.255.255.255").address -bxor $maskaddr.address -bor $networkaddr.address)); }
+
+    if ($ip) {$startaddr = IP-toINT64 -ip $networkaddr.ipaddresstostring; $endaddr = IP-toINT64 -ip $broadcastaddr.ipaddresstostring; }
+    else {$startaddr = IP-toINT64 -ip $start; $endaddr = IP-toINT64 -ip $end; }
+
+    for ($i = $startaddr; $i -le $endaddr; $i++) { INT64-toIP -int $i; }
+}
+
+function IsReservationTargetValid {
+    param([string]$ScopeId, [string]$ReservationTargetIP)
+    $IpsInScope = Get-IPrange -IP $ScopeId -mask (Get-DhcpServerv4Scope -ScopeId $ScopeId).SubnetMask;
+    if ($null -eq $IpsInScope) {return $false; }
+    if (!$IpsInScope.Contains($ReservationTargetIP)) {return $false; }
+    return $true;
+}
+
+#can define scope to have start-end range less than the complete network ID/mask range, and can have reservations outwith the served range
+#as long as the reservation exists in the network defined by the scopeID (read network ID) and mask. >>reject attempts at setting reservation
+#outwith this bound
+if(!(IsReservationTargetValid -ScopeId $ScopeId -ReservationTargetIP $IpAddress)){
+  Write-Error "IPv4 Reservation is invalid for ${ScopeId} at target IP for reservation: ${IPAddress}"
+  exit 1;
+}
+
+$existingScope = Get-DhcpServerv4Scope -ScopeId $ScopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingScope){
+  Write-Error "No IPV4 scope found, cannot manage reservations for scope ID: ${ScopeId}, desired client-id: ${clientId}, desired IP: ${IpAddress}";
+  exit 1;
+}
+
+$existingReservation = Get-DhcpServerv4Reservation -ScopeId $ScopeId -ClientId $ClientId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingReservation){
+  exit 1;
+}
+
+if($IpAddress -ne $ExistingReservation.IPAddress.IPAddressToString){
+  exit 1;
+}
+
+if($existingReservation.Type -ne $ReservationType){
+  exit 1;
+}
+
+if($null -ne $ReservationName){
+  if($existingReservation.Name -ne $ReservationName){
+    exit 1;
+  }
+}
+
+if($null -ne $Description){
+  if($existingReservation.Description -ne $description){
+    exit 1;
+  }
+}
+
+exit 0;

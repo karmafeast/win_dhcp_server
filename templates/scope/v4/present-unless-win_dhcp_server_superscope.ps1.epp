@@ -1,0 +1,24 @@
+<%- |
+String[1] $superscope_name,
+Array[String[1]] $scope_ids,
+| -%>
+import-module dhcpserver;
+
+[String]$SuperscopeName = '<%= $superscope_name %>';
+[Array]$ScopeIds = @(<%= $scope_ids.map |$x|{ "'$x'"}.join(', ') %>);
+
+$existing =  Get-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  exit 1;
+}
+
+[System.Collections.Arraylist]$existingScopeId = [System.Collections.Arraylist]::new();
+foreach($item in (Get-DhcpServerv4SuperScope -SuperScopeName $SuperscopeName).ScopeId){$existingScopeId.Add($item.IpAddressToString) > $null;}
+
+#powershell is loose enough to allow us to compare string elements of an array list versus a string array
+$compareResults = Compare-Object -ReferenceObject $existingScopeId -DifferenceObject $ScopeIds;
+
+if($null -eq $compareResults){exit 0; }#desired == existing
+
+exit 1;

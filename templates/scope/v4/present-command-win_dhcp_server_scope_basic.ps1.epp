@@ -1,0 +1,217 @@
+<%- |
+String[1] $scope_id,
+String[1] $scope_type,
+String[1] $start_range,
+String[1] $end_range,
+String[1] $subnet_mask,
+String $scope_name,
+Optional[String] $description = undef,
+Optional[Enum['Active', 'InActive']] $active_state = undef,
+Optional[String] $superscope_name = undef,
+Optional[String] $lease_duration = undef,
+Optional[Boolean] $nap_enable = undef,
+Optional[String] $nap_profile = undef,
+Optional[Integer] $delay_ms = undef,
+Optional[Integer] $max_bootp_clients = undef,
+Optional[Boolean] $activate_policies = undef
+| -%>
+[String]$scopeId = '<%= $scope_id %>';
+[String]$scopeType = '<%= $scope_type %>';
+[String]$startRange = '<%= $start_range %>';
+[String]$endRange = '<%= $end_range %>';
+[String]$subnetMask = '<%= $subnet_mask %>';
+[String]$scopeName = '<%= $scope_name %>';
+<% if $description { -%>
+[String]$scopeDescription = '<%= $description %>';
+<% } else { -%>
+$scopeDescription = $null;
+<% } -%>
+<% if $active_state { -%>
+[String]$activeState = '<%= $active_state %>';
+<% } else { -%>
+[String]$activeState = 'Active';
+<% } -%>
+<% if $superscope_name { -%>
+[String]$superscopeName = '<%= $superscope_name %>'
+<% } else { -%>
+$superscopeName = $null;
+<% } -%>
+<% if $lease_duration { -%>
+[String]$leaseDuration = '<%= $lease_duration %>';
+<% } else { -%>
+$leaseDuration = $null;
+<% } -%>
+<% if $nap_enable { -%>
+[Boolean]$napEnable = $<%= $nap_enable %>;
+<% } else { -%>
+$napEnable = $null;
+<% } -%>
+<% if $nap_profile { -%>
+[String]$napProfile = '<%= $nap_profile %>';
+<% } else { -%>
+$napProfile = $null;
+<% } -%>
+<% if $delay_ms { -%>
+[Int32]$delayms = <%= $delay_ms %>;
+<% } else { -%>
+$delayms = $null;
+<% } -%>
+<% if $max_bootp_clients { -%>
+[Int32]$maxBootpClients = <%= $max_bootp_clients %>;
+<% } else { -%>
+$maxBootpClients = $null;
+<% } -%>
+<% if $activate_policies { -%>
+[Boolean]$activatePolicies = $<%= $activate_policies %>;
+<% } else { -%>
+$activatePolicies = $null;
+<% } -%>
+
+import-module dhcpserver;
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Add-DhcpServerv4Scope -StartRange $startRange -EndRange $endRange -SubnetMask $subnetMask -name $scopeName -State $activeState -Type $scopeType -Confirm:$false;
+  Write-Output "IPv4 Scope created [${scopeType}]- ID: ${scopeId}, range: ${startRange}-${endRange}, mask: ${subnetMask}, name: ${scopeName}, state: ${activeState}";
+}
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Output "ERROR - no scope found at scopeId: ${scopeId} where one should exist - must halt (after creating scope from null)";
+  exit 1;
+}
+
+if($existing.ScopeId.IPAddressToString -ne $scopeId){
+  Write-Error "logic error on IPv4 scope inspection. found existing scope with scope ID match, object does not have matching scopeID.";
+  exit 1;
+}
+
+if($existing.SubnetMask.IPAddressToString -ne $subnetMask){
+  #need to delete / recreate the scope
+  Write-Output "cannot shift subnetmask range for scopeId: ${scopeId}... deleting and recreating scope...";
+  Remove-DhcpServerv4Scope -ScopeId $scopeId -Force -Confirm:$false;
+  Add-DhcpServerv4Scope -StartRange $startRange -EndRange $endRange -SubnetMask $subnetMask -name $scopeName -State $activeState -Type $scopeType  -Confirm:$false;
+  Write-Output "IPv4 Scope created [${scopeType}]- ID: ${scopeId}, range: ${startRange}-${endRange}, mask: ${subnetMask}, name: ${scopeName}, state: ${activeState}";
+}
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Output "ERROR - no scope found at scopeId: ${scopeId} where one should exist - must halt (after subnet mask check on existing scope)";
+  exit 1;
+}
+
+if($existing.Type -ne $scopeType)
+{
+  #must delete then recreate scope
+  Write-Output "cannot shift scope type for scopeId: ${scopeId}... deleting and recreating scope...";
+  Remove-DhcpServerv4Scope -ScopeId $scopeId -Force -Confirm:$false;
+  Add-DhcpServerv4Scope -StartRange $startRange -EndRange $endRange -SubnetMask $subnetMask -name $scopeName -State $activeState -Type $scopeType -Confirm:$false;
+  Write-Output "IPv4 Scope created [${scopeType}]- ID: ${scopeId}, range: ${startRange}-${endRange}, mask: ${subnetMask}, name: ${scopeName}, state: ${activeState}";
+}
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Output "ERROR - no scope found at scopeId: ${scopeId} where one should exist - must halt (after scope type check on existing scope)";
+  exit 1;
+}
+
+
+
+if(($existing.StartRange.IPAddressToString -ne $startRange) -or ($existing.EndRange.IPAddressToString -ne $endRange)){
+  #process will fail if there's an overlap.  should this occur we're going to delete the scope and recreate it...
+  try {
+    Write-Output "correcting start/end range for scopeId: ${scopeId} >> ${startRange}-${endRange}";
+    Set-DhcpServerv4Scope -ScopeId $scopeid -StartRange $startRange -EndRange $endRange -Confirm:$false;
+  }
+  catch {
+    Write-Output "could not shift start/end range for scopeId: ${scopeId}... deleting and recreating scope...";
+    Remove-DhcpServerv4Scope -ScopeId $scopeId -Force -Confirm:$false;
+    Add-DhcpServerv4Scope -StartRange $startRange -EndRange $endRange -SubnetMask $subnetMask -name $scopeName -State $activeState -Type $scopeType -Confirm:$false;
+    Write-Output "IPv4 Scope created [${scopeType}]- ID: ${scopeId}, range: ${startRange}-${endRange}, mask: ${subnetMask}, name: ${scopeName}, state: ${activeState}";
+  }
+}
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Output "ERROR - no scope found at scopeId: ${scopeId} where one should exist - must halt (after range check on existing scope";
+  exit 1;
+}
+
+if($existing.Name -ne $scopeName){
+  Write-Output "correcting scope name mismatch. scopeID: ${scopeId} should be named: ${scopeName}";
+  Set-DhcpServerv4Scope -ScopeId $scopeId -Name $scopeName -Confirm:$false;
+}
+
+if($null -ne $scopeDescription){
+  if($existing.Description -ne $scopeDescription){
+    Write-Output "correcting scope description mismatch. scopeID: ${scopeId} should be described as: '${scopeDescription}'";
+    Set-DhcpServerv4Scope -ScopeId $scopeId -Description $scopeDescription -Confirm:$false;
+  }
+}
+
+if($null -ne $leaseDuration)
+{
+  if($existing.LeaseDuration.toString() -ne $leaseDuration){
+    Write-Output "correcting scope lease duration mismatch. scopeID: ${scopeId} should be: '${leaseDuration}'";
+    Set-DhcpServerv4Scope -ScopeId $scopeId -LeaseDuration $leaseDuration -Confirm:$false;
+  }
+}
+
+if($null -ne $napEnable){
+  if($existing.NapEnable -ne $napEnable){
+    if($napEnable){
+      Write-Output "correcting nap Enablement mismatch. scopeID: ${scopeId} should be: '${napEnable}'";
+      if($null -eq $napProfile){
+        Write-Output "correcting nap Enablement mismatch, but there is no NAP profile. must fail. scopeID: ${scopeId} should be: '${napEnable}'";
+        exit 1;
+      }
+      set-dhcpserverv4scope -ScopeId $scopeId -Napenable $napEnable -NapProfile $napProfile -Confirm:$false;
+    }
+    else {
+        Write-Output "correcting NAP Enablement mismatch. scopeID: ${scopeId} should be: '${napEnable}'";
+        set-dhcpserverv4scope -ScopeId $scopeId -Napenable $napEnable -Confirm:$false;
+    }
+  }
+}
+
+if($null -ne $delayms){
+  if($existing.delay -ne $delayms){
+    Write-Output "correcting serve delay ms mismatch. scopeID: ${scopeId} should be: '${delayms}'";
+    Set-DhcpServerv4Scope -scopeId $scopeId -Delay $delayms -Confirm:$false;
+  }
+}
+
+if($null -ne $maxBootpClients){
+if($existing.Type -eq 'Both'){
+  if($existing.MaxBootpClients -ne $maxBootpClients){
+      Write-Output "correcting max bootp clients mismatch. scopeID: ${scopeId} should be: '${maxBootpClients}'";
+      Set-DhcpServerv4Scope -ScopeId $scopeId -MaxBootpClients $maxBootpClients -Confirm:$false;
+    }
+  }
+}
+
+if($null -ne $activatePolicies){
+  if($existing.ActivatePolicies -ne $activatePolicies){
+    Write-Output "correcting 'Activate Policies' state mismatch. scopeID: ${scopeId} should be: '${activatePolicies}'";
+    Set-DhcpServerv4Scope -ScopeId $scopeId -ActivatePolicies $activatePolicies -Confirm:$false;
+  }
+}
+
+if($activeState.ToLower() -ne $Existing.State.ToLower()){
+  Write-Warning "correcting Active state mismatch. scopeID: ${scopeId} should be: '${activeState}'";
+  Set-DhcpServerv4Scope -ScopeId $scopeId -State $activeState -Confirm:$false;
+}
+
+if($null -ne $SuperScopeName){
+  if($superScopeName -ne $Existing.SuperscopeName)
+  {
+    Write-Warning "correcting Superscope name mismatch. scopeID: ${scopeId} should be '${superScopeName}'";
+    Set-DhcpServerv4Scope -ScopeId $scopeId -SuperscopeName $superScopeName -Confirm:$false;
+  }
+}
+

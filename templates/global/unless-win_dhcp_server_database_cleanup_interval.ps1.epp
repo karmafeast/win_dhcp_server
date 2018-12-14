@@ -1,0 +1,9 @@
+<%- | Integer $cleanup_interval | -%>
+import-module dhcpserver;
+[Int32]$cleanup_interval = <%= $cleanup_interval %>;
+[Int32]$existing = (get-dhcpserverdatabase).CleanupInterval;
+if($existing -ne $cleanup_interval){
+Write-Output "Improper DHCP Server database cleanup interval: ${existing} - expected ${cleanup_interval}";
+exit 1;
+}
+exit 0;

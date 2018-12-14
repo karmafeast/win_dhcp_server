@@ -1,0 +1,16 @@
+<%- |
+Boolean $nap_enable
+| -%>
+import-module dhcpserver;
+[Boolean]$NapEnable = $<%= $nap_enable %>;
+
+$existingSetting = (Get-DhcpServerSetting).NapEnabled;
+
+if($NapEnable -ne $existingSetting){
+  try{Set-DhcpServerSetting -NapEnabled $NapEnable -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("unable to set desired config for 'NapEnabled', existing value: '{0}', desired: '{1}' - {2}" -f $existingSetting, $NapEnable, $_.Exception.Message);
+    exit 1;
+  }
+  Write-Output ("set desired config for 'NapEnabled', existing value: '{0}', desired: '{1}'" -f $existingSetting, $NapEnable);
+}

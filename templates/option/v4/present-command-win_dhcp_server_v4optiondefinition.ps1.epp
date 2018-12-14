@@ -1,0 +1,163 @@
+<%- |
+Integer[1, 255] $option_id,
+String[1] $definition_name,
+Enum['Byte', 'Word', 'DWord', 'DWordDword', 'IPAddress', 'String', 'BinaryData', 'EncapsulatedData', 'IPv6Address'] $value_data_type,
+Optional[Array[String[1]]] $default_value = undef,
+Optional[String] $description = undef,
+Optional[Boolean] $multivalued = undef,
+Optional[String[1]] $vendor_class = undef
+| -%>
+
+#name and optionid must be unique for vendorclass
+function Remove-OverlappingOptionDefinition {
+ param(
+  [Parameter(Mandatory=$true)][Int32]$DesiredOptionId,
+  [Parameter(Mandatory=$true)][String]$DesiredName,
+  [Parameter(Mandatory=$true)][String]$DesiredDataType,
+  [Parameter(Mandatory=$false)][String]$VendorClass = '',
+  [Parameter(Mandatory=$false)][Nullable[Boolean]]$DesiredMultiValued = $null
+ )
+
+  if($VendorClass.length -gt 0){Get-DhcpServerv4Class -Name $VendorClass -ErrorAction Stop > $null;}
+
+  $existingDefinitions = Get-DhcpServerv4OptionDefinition -VendorClass $VendorClass;
+  if ($null -eq $existingDefinitions) {return; }
+
+  $checkItem = Get-DhcpServerv4OptionDefinition -VendorClass $VendorClass | where 'Name' -eq $DesiredName;
+
+  if($null -ne $checkItem){
+    [Boolean]$priorRemoval = $false;
+    if($checkItem.OptionId -ne $DesiredOptionId){
+      Remove-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $checkItem.OptionId -Confirm:$false;
+      Write-Warning ("removed overlapped v4 option definition ID: {0} name: {1}, desired ID: {2}" -f $checkItem.OptionId, $checkItem.Name, $DesiredOptionId);
+      $priorRemoval = $true;
+    }
+    if(!$priorRemoval){
+      if($checkItem.Type -ne $DesiredDataType){
+        Remove-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $checkItem.OptionId -Confirm:$false;
+        Write-Warning ("removed overlapped v4 option definition ID: {0} name: {1}, type: {2}, desired type: {3}" -f $checkItem.OptionId, $checkItem.Name, $checkItem.Type, $DesiredDataType);
+        $priorRemoval = $true;
+      }
+    }
+    if(!$priorRemoval){
+      if($null -ne $DesiredMultiValued){
+        if($checkItem.Multivalued -ne $DesiredMultiValued){
+          Remove-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $checkItem.OptionId -Confirm:$false;
+          Write-Warning ("removed overlapped v4 option definition ID: {0} name: {1}, multivalued: {2}, desired multivalued: {3}" -f $checkItem.OptionId, $checkItem.Name, $checkItem.Multivalued, $DesiredMultiValued);
+          $priorRemoval = $true;
+        }
+      }
+    }
+  }
+
+  $checkItem = Get-DhcpServerv4OptionDefinition -VendorClass $VendorClass | where 'OptionId' -eq $DesiredOptionId;
+
+  if($checkItem -ne $null){
+    [Boolean]$priorRemoval = $false;
+    if($checkItem.Name -ne $DesiredName){
+      Remove-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $checkItem.OptionId -Confirm:$false;
+      Write-Warning ("removed overlapped v4 option definition ID: {0} name: {1}, desired name: {2}" -f $checkItem.OptionId, $checkItem.Name, $DesiredName);
+      $priorRemoval = $true;
+    }
+    if(!$priorRemoval){
+      if($checkItem.Type -ne $DesiredDataType){
+        Remove-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $checkItem.OptionId -Confirm:$false;
+        Write-Warning ("removed overlapped v4 option definition ID: {0} name: {1}, type: {2}, desired type: {3}" -f $checkItem.OptionId, $checkItem.Name, $checkItem.Type, $DesiredDataType);
+        $priorRemoval = $true;
+      }
+    }
+    if(!$priorRemoval){
+      if($null -ne $DesiredMultiValued){
+        if($checkItem.Multivalued -ne $DesiredMultiValued){
+          Remove-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $checkItem.OptionId -Confirm:$false;
+          Write-Warning ("removed overlapped v4 option definition ID: {0} name: {1}, multivalued: {2}, desired multivalued: {3}" -f $checkItem.OptionId, $checkItem.Name, $checkItem.Multivalued, $DesiredMultiValued);
+          $priorRemoval = $true;
+        }
+      }
+    }
+  }
+}
+
+import-module dhcpserver;
+[Int32]$OptionId = <%= $option_id %>;
+[String]$DefinitionName = '<%= $definition_name %>';
+[String]$ValueDataType = '<%= $value_data_type %>';
+<% if $default_value { -%>
+[String[]]$DefaultValue = @(<%= $default_value.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$DefaultValue = $null;
+<% } -%>
+<% if $description { -%>
+[String]$Description = '<%= $description %>';
+<% } else { -%>
+$Description = $null;
+<% } -%>
+<% if $multivalued { -%>
+[Boolean]$MultiValued = $<%= $multivalued %>;
+<% } else { -%>
+$MultiValued = $null;
+<% } -%>
+<% if $vendor_class { -%>
+[String]$VendorClass = '<%= $vendor_class %>';
+<% } else { -%>
+$VendorClass = $null;
+<% } -%>
+
+if($null -ne $VendorClass){
+  try{$existingClass = Get-DhcpServerv4Class -Name $VendorClass -ErrorAction Stop;}
+  catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+}
+
+Remove-OverlappingOptionDefinition -DesiredOptionId $OptionId -DesiredName $DefinitionName -DesiredDataType $ValueDataType -DesiredMultiValued $multivalued -VendorClass $VendorClass;
+
+#check to see if it still exists
+$existingDefinition = Get-DhcpServerv4OptionDefinition -VendorClass $VendorClass -optionid $OptionId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingDefinition){
+  if($null -ne $MultiValued){
+    if($MultiValued){
+      Add-DhcpServerv4OptionDefinition -OptionId $OptionId -Name $DefinitionName -Type $ValueDataType -MultiValued -Confirm:$false -VendorClass $VendorClass;
+      Write-Output ("Added IPv4 Option definition vendor class: '{0}' ID: {1}, Name: '{2}', Type: '{3}' as MULTIVALUED" -f $VendorClass, $OptionId, $DefinitionName, $ValueDataType);
+    }
+    else {
+      Add-DhcpServerv4OptionDefinition -OptionId $OptionId -Name $DefinitionName -Type $ValueDataType -Confirm:$false -VendorClass $VendorClass;
+      Write-Output ("Added IPv4 Option definition vendor class: '{0}' ID: {1}, Name: '{2}', Type: '{3}'" -f $VendorClass, $OptionId, $DefinitionName, $ValueDataType);
+    }
+  }
+  else {
+    Add-DhcpServerv4OptionDefinition -OptionId $OptionId -Name $DefinitionName -Type $ValueDataType -Confirm:$false -VendorClass $VendorClass;
+    Write-Output ("Added IPv4 Option definition vendor class: '{0}' ID: {1}, Name: '{2}', Type: '{3}'" -f $VendorClass, $OptionId, $DefinitionName, $ValueDataType);
+  }
+}
+
+$existingDefinition = Get-DhcpServerv4OptionDefinition -VendorClass $VendorClass -optionid $OptionId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingDefinition){
+  Write-Error "no existing IPv4 Option Definition after creation should have occured, cannot continue.";
+  exit 1;
+}
+
+if($null -ne $Description){
+  if($existingDefinition.Description -ne $Description){
+    Set-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $OptionId -Description $Description -Confirm:$false;
+    Write-Output ("Changed description of IPv4 option definition. vendor class: '{0}', ID: '{1}', Name: '{2}' set description: {3}" -f $VendorClass, $OptionId, $DefinitionName, $Description);
+  }
+}
+
+if($null -ne $DefaultValue){
+  if($null -ne (Compare-Object -ReferenceObject $existingDefinition.DefaultValue -DifferenceObject $DefaultValue)){
+    Set-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $OptionId -DefaultValue $DefaultValue -Confirm:$false;
+    Write-Output ("Changed default value of IPv4 option definition. vendor class: '{0}', ID: '{1}', Name: '{2}' set default value: {3}" -f $VendorClass, $OptionId, $DefinitionName, ("'[{0}]'" -f [System.String]::Join(",", $DefaultValue)));
+  }
+}
+else {
+#if we don't specify a default value, we're going to clear what's there. seems like this is a String[1] with an empty string in it
+  Set-DhcpServerv4OptionDefinition -VendorClass $VendorClass -OptionId $OptionId -DefaultValue @('') -confirm:$false;
+  Write-Output ("Set default value for vendor class: '{0}', ID: '{1}', Name: '{2}' to @('') (i.e. empty) as null or empty specified to this resource" -f $VendorClass, $OptionId, $DefinitionName);
+}
+
+
+
+
+
+

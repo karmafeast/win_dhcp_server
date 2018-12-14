@@ -1,0 +1,150 @@
+<%- |
+String[1] $scope_id,
+String[1] $scope_type,
+String[1] $start_range,
+String[1] $end_range,
+String[1] $subnet_mask,
+String $scope_name,
+Optional[String] $description = undef,
+Optional[Enum['Active', 'InActive']] $active_state = undef,
+Optional[String] $superscope_name = undef,
+Optional[String] $lease_duration = undef,
+Optional[Boolean] $nap_enable = undef,
+Optional[String] $nap_profile = undef,
+Optional[Integer] $delay_ms = undef,
+Optional[Integer] $max_bootp_clients = undef,
+Optional[Boolean] $activate_policies = undef
+| -%>
+[String]$scopeId = '<%= $scope_id %>';
+[String]$scopeType = '<%= $scope_type %>';
+[String]$startRange = '<%= $start_range %>';
+[String]$endRange = '<%= $end_range %>';
+[String]$subnetMask = '<%= $subnet_mask %>';
+[String]$scopeName = '<%= $scope_name %>';
+<% if $description { -%>
+[String]$scopeDescription = '<%= $description %>';
+<% } else { -%>
+$scopeDescription = $null;
+<% } -%>
+<% if $active_state { -%>
+[String]$activeState = '<%= $active_state %>';
+<% } else { -%>
+[String]$activeState = 'Active';
+<% } -%>
+<% if $superscope_name { -%>
+[String]$superscopeName = '<%= $superscope_name %>'
+<% } else { -%>
+$superscopeName = $null;
+<% } -%>
+<% if $lease_duration { -%>
+[String]$leaseDuration = '<%= $lease_duration %>';
+<% } else { -%>
+$leaseDuration = $null;
+<% } -%>
+<% if $nap_enable { -%>
+[Boolean]$napEnable = $<%= $nap_enable %>;
+<% } else { -%>
+$napEnable = $null;
+<% } -%>
+<% if $nap_profile { -%>
+[String]$napProfile = '<%= $nap_profile %>';
+<% } else { -%>
+$napProfile = $null;
+<% } -%>
+<% if $delay_ms { -%>
+[Int32]$delayms = <%= $delay_ms %>;
+<% } else { -%>
+$delayms = $null;
+<% } -%>
+<% if $max_bootp_clients { -%>
+[Int32]$maxBootpClients = <%= $max_bootp_clients %>;
+<% } else { -%>
+$maxBootpClients = $null;
+<% } -%>
+<% if $activate_policies { -%>
+[Boolean]$activatePolicies = $<%= $activate_policies %>;
+<% } else { -%>
+$activatePolicies = $null;
+<% } -%>
+
+import-module dhcpserver;
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  exit 1;
+}
+
+if($existing.Type -ne $scopeType)
+{
+  exit 1;
+}
+
+if($existing.SubnetMask.IPAddressToString -ne $subnetMask){
+  exit 1;
+}
+
+if(($existing.StartRange.IPAddressToString -ne $startRange) -or ($existing.EndRange.IPAddressToString -ne $endRange)){
+  exit 1;
+}
+
+if($existing.Name -ne $scopeName){
+  exit 1;
+}
+
+if($null -ne $scopeDescription){
+  if($existing.Description -ne $scopeDescription){
+    exit 1;
+  }
+}
+
+if($null -ne $leaseDuration){
+  if($existing.LeaseDuration.toString() -ne $leaseDuration){
+    exit 1;
+  }
+}
+
+if($null -ne $napEnable){
+  if($existing.NapEnable -ne $napEnable){
+    exit 1;
+  }
+}
+
+if($null -ne $napProfile){
+  if($existing.NapProfile -ne $napProfile){
+    exit 1;
+  }
+}
+
+if($null -ne $delayms){
+  if($existing.delay -ne $delayms)  {
+    exit 1;
+  }
+}
+
+if($null -ne $maxBootpClients){
+  if($existing.Type -eq 'Both'){
+    if($existing.MaxBootpClients -ne $maxBootpClients)  {
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $activatePolicies){
+  if($existing.ActivatePolicies -ne $activatePolicies){
+    exit 1;
+  }
+}
+
+if($activeState.ToLower() -ne $Existing.State.ToLower()){
+  exit 1;
+}
+
+if($null -ne $SuperScopeName){
+  if($superScopeName -ne $Existing.SuperscopeName)
+  {
+    exit 1;
+  }
+}
+
+exit 0;

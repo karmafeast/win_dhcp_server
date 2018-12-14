@@ -1,0 +1,12 @@
+<%- |
+String[1] $superscope_name
+| -%>
+import-module dhcpserver;
+
+[String]$SuperscopeName = '<%= $superscope_name %>';
+
+$existing =  Get-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -ErrorAction SilentlyContinue;
+
+if($null -ne $existing){exit 1;}
+
+exit 0;

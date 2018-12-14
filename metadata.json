@@ -1,0 +1,35 @@
+{
+  "name": "karmafeast-win_dhcp_server",
+  "version": "1.0.0",
+  "author": "karmafeast",
+  "summary": "management of windows DHCP services",
+  "license": "Apache-2.0",
+  "source": "https://github.com/karmafeast/win_dhcp_server.git",
+  "project_page": "https://github.com/karmafeast/win_dhcp_server",
+  "issues_url": "https://github.com/karmafeast/win_dhcp_server/issues",
+  "dependencies": [
+    {
+      "name": "puppetlabs-stdlib",
+      "version_requirement": ">= 4.2.0 < 6.0.0"
+    },
+    {
+      "name": "puppetlabs-powershell",
+      "version_requirement": ">= 2.1.5 < 3.0.0"
+    }
+  ],
+  "operatingsystem_support": [
+    {
+      "operatingsystem": "windows",
+      "operatingsystemrelease": [
+        "2012R2",
+        "2016"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "name": "puppet",
+      "version_requirement": ">= 5.0.0 < 8.0.0"
+    }
+  ]
+}

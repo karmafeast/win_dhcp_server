@@ -1,0 +1,7 @@
+<%- | Integer $auditlog_max_size_mb | -%>
+import-module dhcpserver;
+[Int32]$auditlog_max_size_mb = <%= $auditlog_max_size_mb %>;
+Write-Output "Setting DHCP Server Audit max log size >> ${auditlog_max_size_mb}";
+Set-DhcpServerAuditLog -MaxMBFileSize $auditlog_max_size_mb -Confirm:$false;
+Write-Output "Restarting DHCP Server Service...";
+Restart-Service dhcpserver;

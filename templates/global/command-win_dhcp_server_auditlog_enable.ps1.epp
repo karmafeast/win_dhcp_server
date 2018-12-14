@@ -1,0 +1,7 @@
+<%- | Boolean $auditlog_enable | -%>
+import-module dhcpserver;
+[Boolean]$auditlog_enable = $<%= $auditlog_enable %>;
+Write-Output "Setting DHCP Server Audit log enable state >> ${auditlog_enable}";
+Set-DhcpServerAuditLog -Enable $auditlog_enable -Confirm:$false;
+Write-Output "Restarting DHCP Server Service...";
+Restart-Service dhcpserver;

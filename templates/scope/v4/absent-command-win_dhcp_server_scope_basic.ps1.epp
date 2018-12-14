@@ -1,0 +1,12 @@
+<%- |
+String[1] $scope_id
+| -%>
+import-module dhcpserver;
+[String]$scopeId = '<%= $scope_id %>';
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -ne $existing){
+  Remove-DhcpServerv4Scope -ScopeId $scopeId -Force -Confirm:$false;
+  Write-Output "IPv4 Scope REMOVED - ID: ${scopeId}";
+}

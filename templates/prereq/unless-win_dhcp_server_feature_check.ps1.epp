@@ -1,0 +1,5 @@
+<%- | String $winfeature | -%>
+import-module dhcpserver;
+[String]$winfeature = '<%= $winfeature %>';
+if((get-windowsfeature $winfeature).installstate -ne 'Installed'){exit 1;}
+exit 0;

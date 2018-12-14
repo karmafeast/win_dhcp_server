@@ -1,0 +1,21 @@
+<%- |
+String[1] $mac_address,
+Boolean $binding_state
+| -%>
+import-module dhcpserver;
+[String]$macAddress = '<%= $mac_address %>';
+[Boolean]$BindingState = $<%= $binding_state %>;
+
+$existingInterface = get-netadapter | where 'MacAddress' -eq $macAddress;
+if($null -eq $existingInterface){
+  Write-Warning ("No existing Interface found with mac address: '{0}'. cannot continue." -f $macAddress);
+  exit 1;
+}
+$existingBinding = Get-DhcpServerv4Binding | where 'InterfaceAlias' -eq $existingInterface.Name;
+
+if($null -eq $existingBinding){
+  Write-Warning ("no suitable interface found for v4 binding with mac address: '{0}' and net adapter interface name: '{1}'. cannot continue. (is there an IPv4 address on this adapter?)" -f $macAddress, $existingInterface.Name);
+  exit 1;
+}
+
+if($existingBinding.BindingState -ne $BindingState){exit 1;}

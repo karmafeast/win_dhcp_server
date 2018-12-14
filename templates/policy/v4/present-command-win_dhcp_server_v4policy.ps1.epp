@@ -1,0 +1,504 @@
+<%- |
+String[1] $policy_name,
+String[1] $scope_id,
+Boolean $enabled,
+Enum['AND', 'OR'] $condition_operator,
+Optional[Array[String[1]]] $circuit_id = undef,
+Optional[Array[String[1]]] $client_id = undef,
+Optional[Array[String]] $fqdn = undef,
+Optional[Array[String[1]]] $mac_addresses = undef,
+Optional[Array[String[1]]] $relay_agent = undef,
+Optional[Array[String[1]]] $remote_id = undef,
+Optional[Array[String[1]]] $subscriber_id = undef,
+Optional[Array[String[1]]] $user_class = undef,
+Optional[Array[String[1]]] $vendor_class = undef,
+Optional[String] $description = undef,
+Optional[String[1]] $lease_duration = undef, #day.hrs:mins:secs e.g. 8.00:00:00 (8 days)
+Optional[Integer[1, 65535]] $processing_order = undef
+| -%>
+import-module dhcpserver;
+[String]$PolicyName = '<%= $policy_name %>';
+[String]$ScopeId = '<%= $scope_id %>';
+[Boolean]$Enabled = $<%= $enabled %>;
+[String]$ConditionalOperator = '<%= $condition_operator %>';
+<% if $circuit_id { -%>
+[Array]$CircuitId = @(<%= $circuit_id.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$CircuitId = $null;
+<% } -%>
+<% if $client_id { -%>
+[Array]$ClientId = @(<%= $client_id.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$ClientId = $null;
+<% } -%>
+<% if $fqdn { -%>
+[Array]$FQDN = @(<%= $fqdn.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$FQDN = $null;
+<% } -%>
+<% if $mac_addresses { -%>
+[Array]$MacAddresses = @(<%= $mac_addresses.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$MacAddresses = $null;
+<% } -%>
+<% if $relay_agent { -%>
+[Array]$RelayAgent = @(<%= $relay_agent.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$RelayAgent = $null;
+<% } -%>
+<% if $remote_id { -%>
+[Array]$RemoteId = @(<%= $remote_id.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$RemoteId = $null;
+<% } -%>
+<% if $subscriber_id { -%>
+[Array]$SubscriberId = @(<%= $subscriber_id.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$SubscriberId = $null;
+<% } -%>
+<% if $user_class { -%>
+[Array]$UserClass = @(<%= $user_class.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$UserClass = $null;
+<% } -%>
+<% if $vendor_class { -%>
+[Array]$VendorClass = @(<%= $vendor_class.map |$x| { "'$x'" }.join(', ') %>);
+<% } else { -%>
+$VendorClass = $null;
+<% } -%>
+<% if $description { -%>
+[String]$Description = '<%= $description %>';
+<% } else { -%>
+$Description = $null;
+<% } -%>
+<% if $lease_duration { -%>
+[String]$LeaseDuration = '<%= $lease_duration %>';
+<% } else { -%>
+$LeaseDuration = $null;
+<% } -%>
+<% if $processing_order { -%>
+[Int32]$ProcessingOrder = <%= $processing_order %>;
+<% } else { -%>
+$ProcessingOrder = $null;
+<% } -%>
+
+#Please specify at least one of the optional parameters: VendorClass, UserClass, MacAddress, ClientId, Fqdn, RelayAgent, CircuitId, RemoteId, SubscriberId.
+if(
+  $null -eq $VendorClass -and
+  $null -eq $UserClass -and
+  $null -eq $MacAddresses -and
+  $null -eq $ClientId -and
+  $null -eq $FQDN -and
+  $null -eq $RelayAgent -and
+  $null -eq $CircuitId -and
+  $null -eq $RemoteId -and
+  $null -eq $SubscriberId
+){
+  Write-Warning "For ensure => present on v4 policy must specify at least one of vendor_class, user_class, mac_addresses, client_id, fqdn, relay_agent, circuit_id, remote_id, subscriber_id. cannot continue";
+  exit 1;
+}
+
+if($ScopeId -ne '0.0.0.0'){
+  try{$existingScope = Get-DhcpServerv4Scope -ScopeId $ScopeId -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("Unable to get existing v4 Scope for v4 Policy name: '{0}' in scope id: '{1}'" -f $PolicyName, $ScopeId);
+    exit 1;
+  }
+}
+
+try{$existingPolicies = Get-DhcpServerv4Policy -ScopeId $ScopeId -ErrorAction Stop;}
+catch [Exception]{
+  Write-Warning ("Error on get existing v4 policies on scope id: '{0}'" -f $ScopeId);
+  exit 1;
+}
+
+if($null -eq $existingPolicies){
+  try{
+Add-DhcpServerv4Policy -Name $PolicyName `
+-ScopeId $ScopeId `
+-UserClass $UserClass `
+-Condition $ConditionalOperator `
+-VendorClass $VendorClass `
+-MacAddress $MacAddresses `
+-ClientId $ClientId `
+-Fqdn $FQDN `
+-RelayAgent $RelayAgent `
+-CircuitId $CircuitId `
+-RemoteId $RemoteId `
+-SubscriberId $SubscriberId `
+-ProcessingOrder $ProcessingOrder `
+-Description $Description `
+-Enabled $Enabled `
+-Confirm:$false;
+  Write-Output ("Added v4 Policy name: '{0}' in scope id: '{1}'" -f $PolicyName, $ScopeId);
+  }
+  catch [Exception]{
+    Write-Warning ("Unable to add Policy name: '{0}' in scope id: '{1}'" -f $PolicyName, $ScopeId);
+    exit 1;
+  }
+}
+
+try{$existingPolicy = Get-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -ErrorAction Stop;}
+catch [Exception]{
+  try{
+    Add-DhcpServerv4Policy -Name $PolicyName `
+-ScopeId $ScopeId `
+-UserClass $UserClass `
+-Condition $ConditionalOperator `
+-VendorClass $VendorClass `
+-MacAddress $MacAddresses `
+-ClientId $ClientId `
+-Fqdn $FQDN `
+-RelayAgent $RelayAgent `
+-CircuitId $CircuitId `
+-RemoteId $RemoteId `
+-SubscriberId $SubscriberId `
+-ProcessingOrder $ProcessingOrder `
+-Description $Description `
+-Enabled $Enabled `
+-Confirm:$false;
+  Write-Output ("Added v4 Policy name: '{0}' in scope id: '{1}'" -f $PolicyName, $ScopeId);
+  }
+  catch [Exception]{
+    Write-Warning ("Unable to add Policy name: '{0}' in scope id: '{1}'" -f $PolicyName, $ScopeId);
+    exit 1;
+  }
+}
+
+try{$existingPolicy = Get-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -ErrorAction Stop;}
+catch [Exception]{
+  Write-Warning ("could not obtain policy information after create should have occured if new, cannot continue. Policy name: '{0}' in scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+  exit 1;
+}
+
+if($existingPolicy.Enabled -ne $Enabled){
+  try{
+    Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -Enabled $Enabled -Confirm:$false;
+    Write-Output ("Changed enable state on Policy name: '{0}' on scope id: '{1}' - '{2}'" -f $PolicyName, $ScopeId, $Enabled);
+  }
+  catch [Exception]{
+    Write-Warning ("Error on set enable state on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+    exit 1;
+  }
+}
+
+if($existingPolicy.Condition -ne $ConditionalOperator){
+  try{
+    Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -Condition $ConditionalOperator -Confirm:$false;
+    Write-Output ("Changed conditional operator on Policy name: '{0}' on scope id: '{1}' - '{2}'" -f $PolicyName, $ScopeId, $ConditionalOperator);
+  }
+  catch [Exception]{
+    Write-Warning ("Error on set conditional operator on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+    exit 1;
+  }
+}
+
+if($null -ne $CircuitId){
+  if($null -ne $existingPolicy.CircuitId){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.CircuitId -DifferenceObject $CircuitId)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -CircuitId $CircuitId -Confirm:$false;
+        Write-Output ("Changed circuit id on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $CircuitId));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set circuit id on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($CircuitId -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -CircuitId $CircuitId -Confirm:$false;
+      Write-Output ("Changed circuit id on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $CircuitId));
+    }
+    catch [Exception]{
+      Write-Warning ("Error on set circuit id on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $ClientId){
+  if($null -ne $existingPolicy.ClientId){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.ClientId -DifferenceObject $ClientId)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -ClientId $ClientId -Confirm:$false;
+        Write-Output ("Changed client id on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $ClientId));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set client id on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($ClientId -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -ClientId $ClientId -Confirm:$false;
+      Write-Output ("Changed client id on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $ClientId));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set client id on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $FQDN){
+  if($null -ne $existingPolicy.Fqdn){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.Fqdn -DifferenceObject $FQDN)){
+      try{
+
+      if($FQDN -ne @('')){
+        #cannot have options set on this policy if want to add fqdn as non-null
+        if($null -ne (Get-DhcpServerv4OptionValue -PolicyName $PolicyName -ScopeId $ScopeId)){
+          Write-Warning ("cannot set non null value for 'fqdn' when policy options exist! attempted misconfiguration. cannot continue. policy name: '{0}', scope id: '{1}'" -f $PolicyName, $ScopeId);
+          exit 1;
+        }
+
+        #cannot have policy ip ranges on this policy if want to add fqdn as non-null, not relevant if scope id 0.0.0.0 as policy ip range cannot exist
+        if($ScopeId -ne '0.0.0.0'){
+          if($null -ne (Get-DhcpServerv4PolicyIPRange -ScopeId $ScopeId -Name $PolicyName)){
+            Write-Warning ("cannot set non null 'fqdn' when policy has ip ranges! attempted misconfiguration. cannot continue. policy name: '{0}', scope id: '{1}'" -f $PolicyName, $ScopeId);
+            exit 1;
+          }
+        }
+      }
+
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -Fqdn $FQDN -Confirm:$false;
+        Write-Output ("Changed FQDN on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $FQDN));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set FQDN on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($FQDN -ne @('')){
+    try{
+        #cannot have options set on this policy if want to add fqdn as non-null
+        if($null -ne (Get-DhcpServerv4OptionValue -PolicyName $PolicyName -ScopeId $ScopeId)){
+          Write-Warning ("cannot set non null value for 'fqdn' when policy options exist! attempted misconfiguration. cannot continue. policy name: '{0}', scope id: '{1}'" -f $PolicyName, $ScopeId);
+          exit 1;
+        }
+
+        #cannot have policy ip ranges on this policy if want to add fqdn as non-null, not relevant if scope id 0.0.0.0 as policy ip range cannot exist
+        if($ScopeId -ne '0.0.0.0'){
+          if($null -ne (Get-DhcpServerv4PolicyIPRange -ScopeId $ScopeId -Name $PolicyName)){
+            Write-Warning ("cannot set non null 'fqdn' when policy has ip ranges! attempted misconfiguration. cannot continue. policy name: '{0}', scope id: '{1}'" -f $PolicyName, $ScopeId);
+            exit 1;
+          }
+        }
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -Fqdn $FQDN -Confirm:$false;
+        Write-Output ("Changed FQDN on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $Fqdn));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set FQDN on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $MacAddresses){
+  if($null -ne $existingPolicy.MacAddress){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.MacAddress -DifferenceObject $MacAddresses)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -MacAddress $MacAddresses -Confirm:$false;
+        Write-Output ("Changed MacAddress on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $MacAddresses));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set MacAddress on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($MacAddresses -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -MacAddress $MacAddresses -Confirm:$false;
+      Write-Output ("Changed MacAddress on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $MacAddresses));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set MacAddress on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $RelayAgent){
+  if($null -ne $existingPolicy.RelayAgent){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.RelayAgent -DifferenceObject $RelayAgent)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -RelayAgent $RelayAgent -Confirm:$false;
+        Write-Output ("Changed RelayAgent on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $RelayAgent));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set RelayAgent on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($RelayAgent -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -RelayAgent $RelayAgent -Confirm:$false;
+      Write-Output ("Changed RelayAgent on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $RelayAgent));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set RelayAgent on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $RemoteId){
+  if($null -ne $existingPolicy.RemoteId){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.RemoteId -DifferenceObject $RemoteId)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -RemoteId $RemoteId -Confirm:$false;
+        Write-Output ("Changed RemoteId on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $RemoteId));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set RemoteId on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($RemoteId -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -RemoteId $RemoteId -Confirm:$false;
+      Write-Output ("Changed RemoteId on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $RemoteId));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set RemoteId on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $SubscriberId){
+  if($null -ne $existingPolicy.SubscriberId){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.SubscriberId -DifferenceObject $SubscriberId)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -SubscriberId $SubscriberId -Confirm:$false;
+        Write-Output ("Changed SubscriberId on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $SubscriberId));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set SubscriberId on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($SubscriberId -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -SubscriberId $SubscriberId -Confirm:$false;
+      Write-Output ("Changed SubscriberId on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $SubscriberId));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set SubscriberId on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $UserClass){
+  if($null -ne $existingPolicy.UserClass){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.UserClass -DifferenceObject $UserClass)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -UserClass $UserClass -Confirm:$false;
+        Write-Output ("Changed UserClass on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $UserClass));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set UserClass on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($UserClass -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -UserClass $UserClass -Confirm:$false;
+      Write-Output ("Changed UserClass on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $UserClass));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set UserClass on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $VendorClass){
+  if($null -ne $existingPolicy.VendorClass){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.VendorClass -DifferenceObject $VendorClass)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -VendorClass $VendorClass -Confirm:$false;
+        Write-Output ("Changed VendorClass on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $VendorClass));
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set VendorClass on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  elseif($VendorClass -ne @('')){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -VendorClass $VendorClass -Confirm:$false;
+      Write-Output ("Changed VendorClass on Policy name: '{0}' on scope id: '{1}' - [{2}]" -f $PolicyName, $ScopeId, [System.String]::Join(",", $VendorClass));
+      }
+    catch [Exception]{
+      Write-Warning ("Error on set VendorClass on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $ProcessingOrder){
+  if($existingPolicy.ProcessingOrder -ne $ProcessingOrder){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -ProcessingOrder $ProcessingOrder -Confirm:$false;
+      Write-Output ("Changed Processing Order on Policy name: '{0}' on scope id: '{1}' - '{2}'" -f $PolicyName, $ScopeId, $ProcessingOrder);
+    }
+    catch [Exception]{
+      Write-Warning ("Error on set Processing Order on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $description){
+  if($existingPolicy.Description -ne $Description){
+    try{
+      Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -Description $Description -Confirm:$false;
+      Write-Output ("Changed description on Policy name: '{0}' on scope id: '{1}' - '{2}'" -f $PolicyName, $ScopeId, $Description);
+    }
+    catch [Exception]{
+      Write-Warning ("Error on set description on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+      exit 1;
+    }
+  }
+}
+
+if($null -ne $LeaseDuration){
+  if('' -eq $LeaseDuration){
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.LeaseDuration -DifferenceObject '00:00:00')){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -LeaseDuration '00:00:00' -Confirm:$false;
+        Write-Output ("Changed lease duration to 0/null on Policy name: '{0}' on scope id: '{1}'" -f $PolicyName, $ScopeId);
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set lease duration on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+  else {
+    if($null -ne (Compare-Object -ReferenceObject $existingPolicy.LeaseDuration -DifferenceObject $LeaseDuration)){
+      try{
+        Set-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId -LeaseDuration $LeaseDuration -Confirm:$false;
+        Write-Output ("Changed lease duration on Policy name: '{0}' on scope id: '{1}' to: '{2}'" -f $PolicyName, $ScopeId, $LeaseDuration);
+      }
+      catch [Exception]{
+        Write-Warning ("Error on set lease duration on existing v4 policy name: '{0}' on scope id: '{1}' - {2}" -f $PolicyName, $ScopeId, $_.Exception.Message);
+        exit 1;
+      }
+    }
+  }
+}
+
+

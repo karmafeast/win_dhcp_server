@@ -1,0 +1,3 @@
+<%- | Integer $majorversion | -%>
+Write-Error "PREREQS FAILED ON PS MODULE CHECK - check for 'dhcpserver' major version <%= $majorversion %>";
+exit 1;

@@ -1,0 +1,22 @@
+<%- |
+String[1] $scope_id,
+String[1] $start_range,
+String[1] $end_range
+| -%>
+import-module dhcpserver;
+[String]$scopeId = '<%= $scope_id %>';
+[String]$startRange = '<%= $start_range %>';
+[String]$endRange = '<%= $end_range %>';
+
+$existingExclusions = Get-DhcpServerv4ExclusionRange -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingExclusions){exit 1;}
+
+foreach($exclusion in $existingExclusions){
+  if(($exclusion.StartRange.IPAddressToString -eq $startRange) -and ($exclusion.EndRange.IPAddressToString -eq $endRange))
+  {
+    exit 0;
+  }
+}
+
+exit 1;

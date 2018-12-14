@@ -1,0 +1,23 @@
+<%- |
+String[1] $policy_name,
+String[1] $scope_id,
+String[1] $start_range,
+String[1] $end_range
+| -%>
+import-module dhcpserver;
+[String]$PolicyName = '<%= $policy_name %>';
+[String]$ScopeId = '<%= $scope_id %>';
+[String]$StartRange = '<%= $start_range %>'
+[String]$EndRange = '<%= $end_range %>'
+
+try{$existingPolicy = Get-DhcpServerv4Policy -Name $PolicyName -ScopeId $ScopeId;}
+catch [Exception]{
+  Write-Warning ("No existing policy name: '{0}' in scope ID: '{1}', cannot continue for policy IP range." -f $PolicyName, $ScopeId);
+  exit 1;
+}
+
+$existingPolicyRanges = Get-DhcpServerv4PolicyIPRange -ScopeId $ScopeId -Name $PolicyName -ErrorAction SilentlyContinue;
+
+if($null -eq $existingPolicyRanges){exit 1;}
+
+if(!($existingPolicyRanges | where 'StartRange' -eq $StartRange | where 'EndRange' -eq $EndRange)){exit 1;}

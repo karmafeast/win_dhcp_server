@@ -1,0 +1,9 @@
+<%- | Integer $backup_interval | -%>
+import-module dhcpserver;
+[Int32]$backup_interval = <%= $backup_interval %>;
+[Int32]$existing = (get-dhcpserverdatabase).BackupInterval;
+if($existing -ne $backup_interval){
+Write-Output "Improper DHCP Server database backup interval: ${existing} - expected ${backup_interval}";
+exit 1;
+}
+exit 0;

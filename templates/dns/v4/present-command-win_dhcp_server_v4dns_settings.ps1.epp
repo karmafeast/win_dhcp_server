@@ -1,0 +1,249 @@
+<%- |
+Optional[String[1]] $scope_id                                         = undef,
+Optional[String[1]] $reserved_ip                                      = undef,
+Optional[String[1]] $policy_name                                      = undef,
+Optional[Boolean] $delete_dns_rr_onlease_expiry                       = undef, #!! can only be set if the DynamicUpdate parameter is set to Always or OnClientRequest.
+Optional[Boolean] $disable_dns_ptr_rr_update                          = undef,
+Optional[String[1, 256]] $dns_suffix_for_registration                 = undef, #!! Do not specify this parameter unless you specify the PolicyName parameter.
+Optional[Enum['Always', 'Never', 'OnClientRequest']] $dynamic_updates = undef,
+Optional[Boolean] $name_protection                                    = undef,
+Optional[Boolean] $update_dns_rr_for_old_clients                      = undef
+| -%>
+import-module dhcpserver;
+<% if $scope_id { -%>
+[String]$ScopeId = '<%= $scope_id %>';
+<% } else { -%>
+$ScopeId = $null;
+<% } -%>
+<% if $reserved_ip { -%>
+[String]$ReservedIP = '<%= $reserved_ip %>';
+<% } else { -%>
+$ReservedIP = $null;
+<% } -%>
+<% if $policy_name { -%>
+[String]$PolicyName = '<%= $policy_name %>';
+<% } else { -%>
+$PolicyName = $null;
+<% } -%>
+<% if $delete_dns_rr_onlease_expiry { -%>
+[Boolean]$DeleteDnsRROnLeaseExpiry = $<%= $delete_dns_rr_onlease_expiry %>;
+<% } else { -%>
+$DeleteDnsRROnLeaseExpiry = $null;
+<% } -%>
+<% if $disable_dns_ptr_rr_update { -%>
+[Boolean]$DisableDnsPtrRRUpdate = $<%= $disable_dns_ptr_rr_update %>;
+<% } else { -%>
+$DisableDnsPtrRRUpdate = $null;
+<% } -%>
+<% if $dns_suffix_for_registration { -%>
+[String]$DnsSuffix = '<%= $dns_suffix_for_registration %>';
+<% } else { -%>
+$DnsSuffix = $null;
+<% } -%>
+<% if $dynamic_updates { -%>
+[String]$DynamicUpdates = '<%= $dynamic_updates %>';
+<% } else { -%>
+$DynamicUpdates = $null;
+<% } -%>
+<% if $name_protection { -%>
+[Boolean]$NameProtection = $<%= $name_protection %>;
+<% } else { -%>
+$NameProtection = $null;
+<% } -%>
+<% if $update_dns_rr_for_old_clients { -%>
+[Boolean]$UpdateDnsRRForOlderClients = $<%= $update_dns_rr_for_old_clients %>;
+<% } else { -%>
+$UpdateDnsRRForOlderClients = $null;
+<% } -%>
+
+#NameProtection, DeleteDnsRROnLeaseExpiry and UpdateDnsRRForOlderClients not in here as we handle separately due to their funny restrictions
+[String[]]$compareProperties =  @('DynamicUpdates','DnsSuffix','DisableDnsPtrRRUpdate');
+
+if(($null -eq $PolicyName) -and ($null -ne $DnsSuffix)){
+    Write-Warning ("must not specify dns suffix without policy name. suffix specified: '{0}'" -f $DnsSuffix);
+    exit 1;
+}
+
+if(($null -ne $ReservedIP) -and ($null -ne $PolicyName)){
+  Write-Warning ("must not target reserved_ip and policy_name together. ip: '{0}', policy name: '{1}'. cannot continue." -f $ReservedIP, $PolicyName);
+  exit 1;
+}
+
+if(($null -ne $ReservedIP) -and ($null -ne $NameProtection)){
+  Write-Warning ("must not target reserved_ip and name_protection together. ip: '{0}', desired name protection: '{1}'. cannot continue." -f $ReservedIP, $NameProtection);
+  exit 1;
+}
+
+if(($null -ne $ReservedIP) -and ($null -ne $ScopeId)){
+  Write-Warning ("must not target reserved_ip and scope_id together. ip: '{0}', scope id: '{1}'" -f $ReservedIP, $ScopeId);
+  exit 1;
+}
+
+if($DeleteDnsRROnLeaseExpiry -and ($DynamicUpdates -eq 'Never')){
+  Write-Warning "must not set dynamic_updates 'Never' when delete_dns_rr_onlease_expiry is true. attemped misconfiguration. cannot continue";
+  exit 1;
+}
+
+if(
+  $null -eq $ScopeId -and
+  $null -eq $ReservedIP -and
+  $null -eq $PolicyName
+){
+  #targeting server level settings
+  if($null -ne $DnsSuffix){
+    Write-Warning ("must not target server level settings when specifying dns suffix, only valid for policies. suffix specified: '{0}'" -f $DnsSuffix);
+    exit 1;
+  }
+}
+
+$desiredConfig = @{
+  DynamicUpdates = $DynamicUpdates;
+  DeleteDnsRROnLeaseExpiry = $DeleteDnsRROnLeaseExpiry;
+  UpdateDnsRRForOlderClients = $UpdateDnsRRForOlderClients;
+  DnsSuffix = $DnsSuffix;
+  DisableDnsPtrRRUpdate = $DisableDnsPtrRRUpdate;
+  NameProtection = $NameProtection;
+}
+
+$existingSettingsExpression = "Get-DhcpServerv4DnsSetting";
+$targetingFragment = "";
+if($null -ne $ScopeId){
+  $targetingFragment = $targetingFragment + " -ScopeId '${ScopeId}'";
+}
+if($null -ne $PolicyName){
+  $targetingFragment = $targetingFragment + " -PolicyName '${PolicyName}'";
+}
+if($null -ne $ReservedIP){
+  $targetingFragment = $targetingFragment + " -IPAddress '${ReservedIP}'";
+}
+$existingSettingsExpression = $existingSettingsExpression + $targetingFragment + " -ErrorAction Stop";
+
+try{$existingSettings = Invoke-Expression -Command $existingSettingsExpression;}
+catch [Exception]{
+  Write-Warning ("unable to obtain existing settings at target '{0}'. cannot continue - {1}" -f $targetingFragment, $_.Exception.Message);
+  exit 1;
+}
+
+[Boolean]$nameProtectionLinkedChange = ($desiredConfig.DeleteDnsRROnLeaseExpiry -ne $existingSettings.DeleteDnsRROnLeaseExpiry -and $null -ne $desiredConfig.DeleteDnsRROnLeaseExpiry) -or
+    ($desiredConfig.UpdateDnsRRForOlderClients -ne $existingSettings.UpdateDnsRRForOlderClients -and $null -ne $desiredConfig.UpdateDnsRRForOlderClients);
+
+if(($null -ne $ReservedIp) -and ($existingSettings.NameProtection) -and $nameProtectionLinkedChange){
+  Write-Warning ("must not change name protection on reserved ip, required for linked properties set. ip: '{0}', address scope, policy or server config to change" -f $ReservedIP);
+  exit 1;
+}
+
+if($null -eq $ReservedIp){
+  if($existingSettings.NameProtection){
+    if($nameProtectionLinkedChange){
+      #disable name protection
+      $nameProtectionDisableExpression = "Set-DhcpServerv4DnsSetting" + $targetingFragment + " -NameProtection `$false -Confirm:`$false -ErrorAction Stop";
+
+      Write-Debug "`$nameProtectionDisableExpression: '${nameProtectionDisableExpression}'";
+
+      try{Invoke-Expression -Command $nameProtectionDisableExpression;}
+      catch [Exception]{
+        Write-Warning ("unable to disable name protection to set linked desired condig property changes - {0}" -f $_.Exception.Message);
+        exit 1;
+      }
+      Write-Output ("name protection is enabled and desired config change to DeleteDnsRROnLeaseExpiry or DeleteDnsRROnLeaseExpiry. disabled name protection on '{0}'" -f $targetingFragment);
+    }
+  }
+  if($nameProtectionLinkedChange){
+      #set desired config for relevant settings
+    [String]$setLinkedPropsExpression = "Set-DhcpServerv4DnsSetting" + $targetingFragment;
+    if($null -ne $desiredConfig.DeleteDnsRROnLeaseExpiry){
+      $setLinkedPropsExpression = $setLinkedPropsExpression + " -DeleteDnsRROnLeaseExpiry `$$($desiredConfig.DeleteDnsRROnLeaseExpiry)";
+      Write-Output ("attempting update - DeleteDnsRROnLeaseExpiry: {0}" -f $desiredConfig.DeleteDnsRROnLeaseExpiry);
+    }
+    if($null -ne $desiredConfig.UpdateDnsRRForOlderClients){
+      $setLinkedPropsExpression = $setLinkedPropsExpression + " -UpdateDnsRRForOlderClients `$$($desiredConfig.UpdateDnsRRForOlderClients)";
+      Write-Output ("attempting update - UpdateDnsRRForOlderClients: {0}" -f $desiredConfig.UpdateDnsRRForOlderClients);
+    }
+
+    $setLinkedPropsExpression = $setLinkedPropsExpression + " -ErrorAction Stop";
+
+    Write-Debug "`$setLinkedPropsExpression: '${setLinkedPropsExpression}'";
+
+    try{Invoke-Expression -Command $setLinkedPropsExpression;}
+    catch [Exception]{
+      Write-Warning ("unable to set desired config for name protection linked settings - {0}" -f $_.Exception.Message);
+      exit 1;
+    }
+      Write-Output ("Set name protection linked settings. DeleteDnsRROnLeaseExpiry: {0}, UpdateDnsRRForOlderClients: {1}" -f $desiredConfig.DeleteDnsRROnLeaseExpiry, $desiredConfig.UpdateDnsRRForOlderClients);
+  }
+
+  try{$existingSettings = Invoke-Expression -Command $existingSettingsExpression;}
+  catch [Exception]{
+    Write-Warning ("unable to obtain existing settings at target '{0}'. cannot continue - {1}" -f $targetingFragment, $_.Exception.Message);
+    exit 1;
+  }
+
+  if($null -ne $NameProtection -and ($existingSettings.NameProtection -ne $desiredConfig.NameProtection )){
+
+    [String]$desiredNameProtectionExpression = "Set-DhcpServerv4DnsSetting" + $targetingFragment + " -NameProtection `$$($desiredConfig.NameProtection) -Confirm:`$false -ErrorAction Stop";
+
+    Write-Debug "`$desiredNameProtectionExpression: '${desiredNameProtectionExpression}'";
+
+    try{Invoke-Expression -Command $desiredNameProtectionExpression;}
+    catch [Exception]{
+      Write-Warning ("unable to set desired config for name protection - {0}" -f $_.Exception.Message);
+      exit 1;
+   }
+    Write-Output ("set desired config for name protection: {0}" -f $desiredConfig.NameProtection);
+  }
+}
+
+
+if(($null -ne $ReservedIp) -and (!$existingSettings.NameProtection) -and
+(($desiredConfig.DeleteDnsRROnLeaseExpiry -ne $existingSettings.DeleteDnsRROnLeaseExpiry -and $null -ne $desiredConfig.DeleteDnsRROnLeaseExpiry)-or
+ ($desiredConfig.UpdateDnsRRForOlderClients -ne $existingSettings.UpdateDnsRRForOlderClients -and $null -ne $desiredConfig.UpdateDnsRRForOlderClients))){
+  [String]$setLinkedPropsExpression = "Set-DhcpServerv4DnsSetting" + $targetingFragment;
+  if($null -ne $desiredConfig.DeleteDnsRROnLeaseExpiry){
+    $setLinkedPropsExpression = $setLinkedPropsExpression + " -DeleteDnsRROnLeaseExpiry `$$($desiredConfig.DeleteDnsRROnLeaseExpiry)";
+    Write-Output ("attempting update - DeleteDnsRROnLeaseExpiry: {0}" -f $desiredConfig.DeleteDnsRROnLeaseExpiry);
+  }
+  if($null -ne $desiredConfig.UpdateDnsRRForOlderClients){
+    $setLinkedPropsExpression = $setLinkedPropsExpression + " -UpdateDnsRRForOlderClients `$$($desiredConfig.UpdateDnsRRForOlderClients)";
+    Write-Output ("attempting update - UpdateDnsRRForOlderClients: {0}" -f $desiredConfig.UpdateDnsRRForOlderClients);
+  }
+  $setLinkedPropsExpression = $setLinkedPropsExpression + " -ErrorAction Stop";
+
+  Write-Debug "`$setLinkedPropsExpression: '${setLinkedPropsExpression}'";
+
+  try{Invoke-Expression -Command $setLinkedPropsExpression;}
+  catch [Exception]{
+    Write-Warning ("unable to set desired config on reserved ip: '{0}' - {1}" -f $ReservedIp, $_.Exception.Message);
+    exit 1;
+  }
+  Write-Output ("Set name protection linked settings. DeleteDnsRROnLeaseExpiry: {0}, UpdateDnsRRForOlderClients: {1}" -f $desiredConfig.DeleteDnsRROnLeaseExpiry, $desiredConfig.UpdateDnsRRForOlderClients);
+}
+
+[String]$remainingConfigExpression = "Set-DhcpServerv4DnsSetting" + $targetingFragment;
+[Boolean]$requiresChange = $false;
+
+foreach($property in $compareProperties){
+  if($null -ne $desiredConfig.$property){
+    if($existingSettings.$property -ne $desiredConfig.$property){
+      if($desiredconfig.$property.gettype().Name -eq 'Boolean'){
+        $remainingConfigExpression = $remainingConfigExpression + " -${property} `$$($desiredConfig.$property)"
+      }
+      else {
+        $remainingConfigExpression = $remainingConfigExpression + " -${property} '$($desiredConfig.$property)'"
+      }
+      $requiresChange = $true;
+      Write-Output ("attempting update - '{0}'. existing: '{1}', desired: '{2}'" -f $property, $existingSettings.$property, $desiredConfig.$property);
+    }
+  }
+}
+
+if($requiresChange){
+  $remainingConfigExpression = $remainingConfigExpression + " -Confirm:`$false -ErrorAction Stop";
+
+  Write-Debug "`$remainingConfigExpression: ${remainingConfigExpression}";
+
+  try{Invoke-Expression -Command $remainingConfigExpression}
+  catch [Exception]{
+    Write-Warning ("unable to set desired configuration for dns settings - {0}" -f $_.Exception.Message);
+    exit 1;
+  }
+}

@@ -1,0 +1,5 @@
+<%- | Integer $backup_interval | -%>
+import-module dhcpserver;
+[Int32]$backup_interval = <%= $backup_interval %>;
+Write-Output "Setting DHCP Server database backup interval >> ${backup_interval}";
+Set-DhcpServerDatabase -BackupInterval $backup_interval -Confirm:$false;

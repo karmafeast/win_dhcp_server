@@ -1,0 +1,16 @@
+<%- |
+Enum['Full', 'Restricted', 'NoAccess'] $nps_unreachable_action
+| -%>
+import-module dhcpserver;
+[String]$NpsUnreachableAction = '<%= $nps_unreachable_action %>';
+
+$existingSetting = (Get-DhcpServerSetting).NpsUnreachableAction;
+
+if($NpsUnreachableAction -ne $existingSetting){
+  try{Set-DhcpServerSetting -NpsUnreachableAction $NpsUnreachableAction -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("unable to set desired config for 'NpsUnreachableAction', existing value: '{0}', desired: '{1}' - {2}" -f $existingSetting, $NpsUnreachableAction, $_.Exception.Message);
+    exit 1;
+  }
+  Write-Output ("set desired config for 'NpsUnreachableAction', existing value: '{0}', desired: '{1}'" -f $existingSetting, $NpsUnreachableAction);
+}

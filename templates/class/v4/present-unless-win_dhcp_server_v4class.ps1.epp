@@ -1,0 +1,40 @@
+<%- |
+Enum['User', 'Vendor'] $class_type,
+String[1] $class_name,
+String[1] $class_data,
+Optional[String] $description = undef
+| -%>
+import-module dhcpserver;
+[String]$ClassType = '<%= $class_type %>';
+[String]$ClassName = '<%= $class_name %>';
+[String]$ClassData = '<%= $class_data %>'
+<% if $description { -%>
+[String]$Description = '<%= $description %>'
+<% } else { -%>
+$Description = $null;
+<% } -%>
+
+#description or data can be changed in place
+#other stuff is delete / recreate if in use for name or data with target values, or is mismatched type
+
+$existingClass = Get-DhcpServerv4Class | where 'AsciiData' -eq $ClassData;
+
+if($null -ne $existingClass){
+  if(($existingClass.Name -ne $ClassName) -or ($existingClass.Type -ne $ClassType)){exit 1;}
+}
+
+$existingClass = Get-DhcpServerv4Class -Name $ClassName;
+
+if($null -ne $existingClass){
+  if($existingClass.Type -ne $ClassType){exit 1;}
+}
+
+$existingClass = Get-DhcpServerv4Class -Name $ClassName -ErrorAction SilentlyContinue;
+
+if($null -eq $existingClass){exit 1;}
+
+if($existingClass.AsciiData -ne $ClassData){exit 1;}
+
+if($null -ne $Description){
+  if($existingClass.Description -ne $Description){exit 1;}
+}

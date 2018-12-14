@@ -1,0 +1,132 @@
+<%- |
+String[1] $scope_id,
+String[1] $client_id,
+String[1] $ipaddress,
+Optional[String[1]] $reservation_name = undef,
+Optional[String] $description = undef,
+Optional[Enum['Dhcp', 'Bootp', 'Both']] $reservation_type = undef
+| -%>
+import-module dhcpserver;
+[String]$ScopeId = '<%= $scope_id %>';
+[String]$ClientId = '<%= $client_id %>';
+[String]$IpAddress = '<%= $ipaddress %>';
+<% if $reservation_name { -%>
+[String]$ReservationName = '<%= $reservation_name %>';
+<% } else { -%>
+$ReservationName = $null;
+<% } -%>
+<% if $description { -%>
+[String]$Description = '<%= $description %>';
+<% } else { -%>
+$Description = $null;
+<% } -%>
+<% if $reservation_type { -%>
+[String]$ReservationType = '<%= $reservation_type %>';
+<% } else { -%>
+[String]$ReservationType = 'Both';
+<% } -%>
+
+function Get-IPrange {
+    param([string]$start, [string]$end, [string]$ip, [string]$mask, [int]$cidr)
+    function IP-toINT64 () {
+        param($ip)
+        $octets = $ip.split(".");
+        return [int64]([int64]$octets[0] * 16777216 + [int64]$octets[1] * 65536 + [int64]$octets[2] * 256 + [int64]$octets[3]);
+    }
+
+    function INT64-toIP() {
+        param([int64]$int)
+        return (([math]::truncate($int / 16777216)).tostring() + "." + ([math]::truncate(($int % 16777216) / 65536)).tostring() + "." + ([math]::truncate(($int % 65536) / 256)).tostring() + "." + ([math]::truncate($int % 256)).tostring());
+    }
+
+    if ($ip) {$ipaddr = [Net.IPAddress]::Parse($ip); }
+    if ($cidr) {$maskaddr = [Net.IPAddress]::Parse((INT64-toIP -int ([convert]::ToInt64(("1" * $cidr + "0" * (32 - $cidr)), 2)))); }
+    if ($mask) {$maskaddr = [Net.IPAddress]::Parse($mask); }
+    if ($ip) {$networkaddr = new-object net.ipaddress ($maskaddr.address -band $ipaddr.address); }
+    if ($ip) {$broadcastaddr = new-object net.ipaddress (([system.net.ipaddress]::parse("255.255.255.255").address -bxor $maskaddr.address -bor $networkaddr.address)); }
+
+    if ($ip) {$startaddr = IP-toINT64 -ip $networkaddr.ipaddresstostring; $endaddr = IP-toINT64 -ip $broadcastaddr.ipaddresstostring; }
+    else {$startaddr = IP-toINT64 -ip $start; $endaddr = IP-toINT64 -ip $end; }
+
+    for ($i = $startaddr; $i -le $endaddr; $i++) { INT64-toIP -int $i; }
+}
+
+function Remove-OverlappedReservationIP{
+param([String]$ScopeId, [String]$IpAddress, [String]$ClientId)
+  $existingReservations = Get-DhcpServerv4Reservation -ScopeId $ScopeId -ErrorAction SilentlyContinue;
+  if($null -ne $existingReservations){
+    foreach($reservation in $existingReservations){
+      if($reservation.IPAddress.IPAddressToString -eq $IpAddress){
+        if($reservation.ClientId.ToLower() -ne $ClientId.ToLower()){
+          Remove-DhcpServerv4Reservation -ScopeId $Scopeid -ClientId $reservation.ClientId -confirm:$false;
+          Write-Warning "Removed existing reservation overlapping with target IP for reservation in scope ID: ${ScopeId}, OLD client ID: ${reservation.clientid}, cleared for TARGET NEW client ID: ${ClientId}";
+          break;
+        }
+      }
+    }
+  }
+}
+
+function IsReservationTargetValid {
+    param([string]$ScopeId, [string]$ReservationTargetIP)
+    $IpsInScope = Get-IPrange -IP $ScopeId -mask (Get-DhcpServerv4Scope -ScopeId $ScopeId).SubnetMask;
+    if ($null -eq $IpsInScope) {return $false; }
+    if (!$IpsInScope.Contains($ReservationTargetIP)) {return $false; }
+    return $true;
+}
+
+#can define scope to have start-end range less than the complete network ID/mask range, and can have reservations outwith the served range
+#as long as the reservation exists in the network defined by the scopeID (read network ID) and mask. >>reject attempts at setting reservation
+#outwith this bound
+if(!(IsReservationTargetValid -ScopeId $ScopeId -ReservationTargetIP $IpAddress)){
+  Write-Error "IPv4 Reservation is invalid for ${ScopeId} at target IP for reservation: ${IPAddress}"
+  exit 1;
+}
+
+$existingScope = Get-DhcpServerv4Scope -ScopeId $ScopeId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingScope){
+  Write-Error "No IPV4 scope found, cannot manage reservations for scope ID: ${ScopeId}, desired client-id: ${clientId}, desired IP: ${IpAddress}";
+  exit 1;
+}
+
+#check IP not already used in another reservation (i.e. associated with another clientID), if it is free it
+Remove-OverlappedReservationIP -ScopeId $ScopeId -IpAddress $IpAddress -ClientId $ClientId;
+
+$existingReservation = Get-DhcpServerv4Reservation -ScopeId $ScopeId -ClientId $ClientId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingReservation){
+  Add-DhcpServerv4Reservation -ScopeId $ScopeId -ClientId $ClientId -IPAddress $IpAddress -Type $ReservationType -Confirm:$false;
+}
+
+if($IpAddress -ne $ExistingReservation.IPAddress.IPAddressToString){
+  Remove-DhcpServerv4Reservation -ScopeId $ScopeId -ClientId $ClientId -Confirm:$false;
+  Write-Warning "Removed IPv4 reservation in scope ID: ${ScopeId}, client ID: ${ClientId} - IP ADDRESS MISMATCH, will recreate";
+  Add-DhcpServerv4Reservation -ScopeId $ScopeId -ClientId $ClientId -IPAddress $IpAddress -Type $ReservationType -Confirm:$false;
+}
+
+$existingReservation = Get-DhcpServerv4Reservation -ScopeId $ScopeId -ClientId $ClientId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingReservation){
+  Write-Error "No existing IPv4 reservation after deletion and recreation due to IP address mismatch. must fail. scope: ${ScopeId}, target clientID: ${ClientId}, disired IP: ${IpAddress}";
+  exit 1;
+}
+
+if($existingReservation.Type -ne $ReservationType){
+  Set-DhcpServerv4Reservation -ClientId $ClientId -IPAddress $IpAddress -Type $ReservationType -Confirm:$false;
+  Write-Output "changed reservation type in scope ID: ${ScopeId}, Client ID: ${ClientId}, IP: ${IpAddress}, reservation type: ${ReservationType}";
+}
+
+if($null -ne $ReservationName){
+  if($existingReservation.Name -ne $ReservationName){
+    Set-DhcpServerv4Reservation -ClientId $ClientId -IPAddress $IpAddress -Name $ReservationName -Confirm:$false;
+    Write-Output "changed reservation name in scope ID: ${ScopeId}, Client ID: ${ClientId}, IP: ${IpAddress}, reservation name: ${ReservationName}";
+  }
+}
+
+if($null -ne $Description){
+  if($existingReservation.Description -ne $description){
+    Set-DhcpServerv4Reservation -ClientId $ClientId -IPAddress $IpAddress -Description $Description -Confirm:$false;
+    Write-Output "changed reservation description in scope ID: ${ScopeId}, Client ID: ${ClientId}, IP: ${IpAddress}, reservation description: ${Description}";
+  }
+}

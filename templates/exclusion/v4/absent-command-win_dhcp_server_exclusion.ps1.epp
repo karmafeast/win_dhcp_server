@@ -1,0 +1,78 @@
+<%- |
+String[1] $scope_id,
+String $start_range,
+String $end_range
+| -%>
+import-module dhcpserver;
+[String]$scopeId = '<%= $scope_id %>';
+[String]$startRange = '<%= $start_range %>';
+[String]$endRange = '<%= $end_range %>';
+
+function Get-IPrange {
+    param([string]$start, [string]$end, [string]$ip, [string]$mask, [int]$cidr)
+    function IP-toINT64 () {
+        param($ip)
+        $octets = $ip.split(".");
+        return [int64]([int64]$octets[0] * 16777216 + [int64]$octets[1] * 65536 + [int64]$octets[2] * 256 + [int64]$octets[3]);
+    }
+
+    function INT64-toIP() {
+        param([int64]$int)
+        return (([math]::truncate($int / 16777216)).tostring() + "." + ([math]::truncate(($int % 16777216) / 65536)).tostring() + "." + ([math]::truncate(($int % 65536) / 256)).tostring() + "." + ([math]::truncate($int % 256)).tostring());
+    }
+
+    if ($ip) {$ipaddr = [Net.IPAddress]::Parse($ip); }
+    if ($cidr) {$maskaddr = [Net.IPAddress]::Parse((INT64-toIP -int ([convert]::ToInt64(("1" * $cidr + "0" * (32 - $cidr)), 2)))); }
+    if ($mask) {$maskaddr = [Net.IPAddress]::Parse($mask); }
+    if ($ip) {$networkaddr = new-object net.ipaddress ($maskaddr.address -band $ipaddr.address); }
+    if ($ip) {$broadcastaddr = new-object net.ipaddress (([system.net.ipaddress]::parse("255.255.255.255").address -bxor $maskaddr.address -bor $networkaddr.address)); }
+
+    if ($ip) {$startaddr = IP-toINT64 -ip $networkaddr.ipaddresstostring; $endaddr = IP-toINT64 -ip $broadcastaddr.ipaddresstostring; }
+    else {$startaddr = IP-toINT64 -ip $start; $endaddr = IP-toINT64 -ip $end; }
+
+    for ($i = $startaddr; $i -le $endaddr; $i++) { INT64-toIP -int $i; }
+}
+
+function IsRangeValid {
+    param([string]$ScopeId, [string]$DesiredStart, [string]$DesiredEnd)
+    $IpsInScope = Get-IPrange -start (get-dhcpserverv4scope -ScopeId $scopeId).StartRange -end (get-dhcpserverv4scope -ScopeId $scopeId).EndRange;
+    if ($null -eq $IpsInScope) {return $false; }
+    if (!($IpsInScope.Contains($desiredstart) -and $IpsInScope.Contains($desiredend))) {return $false; }
+    $indexDesiredStart = -1;
+    $indexDesiredEnd = -1;
+    for ($i = 0; $i -lt $IpsInScope.Length; $i++) {
+        if ($IpsInScope[$i] -eq $DesiredEnd) {$indexDesiredEnd = $i}
+        if ($IpsInScope[$i] -eq $DesiredStart) {$indexDesiredStart = $i}
+    }
+    if ($indexDesiredStart -gt $indexDesiredEnd) {return $false}
+    return $true;
+}
+
+$existingExclusions = Get-DhcpServerv4ExclusionRange -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+#there are no existing exclusions and we've been asked to ensure absent, unless should prevent this command's execution
+if($null -eq $existingExclusions){
+  Write-Warning "Exec to ensure => absent exclusion range on scopeID: ${scopeId}, start: ${startRange}, end: ${endRange} has executed command. unless should have detected state.";
+  exit 0;
+}
+
+if(($startRange.Length -eq 0) -and ($endRange.Length -eq 0))
+{
+  Write-Warning "NO START-END range specified for ensure => absent on scope ID: ${scopeId} - REMOVING ALL EXCLUSION RANGES";
+  Remove-DhcpServerv4ExclusionRange -ScopeId $scopeid -Confirm:$false;
+  exit 0;
+}
+
+if(!(IsRangeValid -ScopeId $scopeId -DesiredStart $startRange -DesiredEnd $endRange)){
+  Write-Error "IP Range for exclusion invalid for scope id: ${scopeId}, start: ${startRange}, end: ${endRange}";
+  exit 1;
+}
+
+foreach($exclusion in $existingExclusions){
+  if(($exclusion.StartRange.IPAddressToString -eq $startRange) -and ($exclusion.EndRange.IPAddressToString -eq $endRange))
+  {
+    Remove-DhcpServerv4ExclusionRange -ScopeId $scopeId -StartRange $startRange -EndRange $endRange -Confirm:$false;
+    Write-Output "REMOVED IPv4 Exclusion Range on ScopeID: ${scopeId}, start: ${startRange}, end: ${endRange}";
+    break;
+  }
+}

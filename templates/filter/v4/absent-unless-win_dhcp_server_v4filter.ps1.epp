@@ -1,0 +1,14 @@
+<%- |
+Enum['Allow', 'Deny'] $list,
+Array[String[1]] $mac_addresses,
+| -%>
+import-module dhcpserver;
+[String]$List = '<%= $list %>';
+[String[]]$MacAddresses = @(<%= $mac_addresses.map |$x| { "'$x'" }.join(', ') %>);
+
+$existingEntries = Get-DhcpServerv4Filter -list $list;
+if($null -eq $existingEntries){exit 0;}
+
+foreach($mac in $MacAddresses){
+  if ($existingEntries.MacAddress -contains $mac){exit 1;}
+}

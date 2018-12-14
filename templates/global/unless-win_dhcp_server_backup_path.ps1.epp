@@ -1,0 +1,9 @@
+<%- | String $backuppath | -%>
+import-module dhcpserver;
+[String]$backuppath = '<%= $backuppath %>';
+[String]$existing = (Get-DhcpServerDatabase).BackupPath;
+if($existing -ne $backuppath){
+Write-Output "Improper DHCP Server database backup path: '${existing}' - expected '${backuppath}'";
+exit 1;
+}
+exit 0;

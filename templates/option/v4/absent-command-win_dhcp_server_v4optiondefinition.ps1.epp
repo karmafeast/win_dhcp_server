@@ -1,0 +1,61 @@
+<%- |
+Integer[1, 255] $option_id,
+Optional[String[1]] $definition_name = undef,
+Optional[String[1]] $vendor_class = undef
+| -%>
+import-module dhcpserver;
+[Int32]$OptionId = <%= $option_id %>;
+<% if $definition_name { -%>
+[String]$DefinitionName = '<%= $definition_name %>'
+<% } else { -%>
+$DefinitionName = $null;
+<% } -%>
+<% if $vendor_class { -%>
+[String]$VendorClass = '<%= $vendor_class %>'
+<% } else { -%>
+$VendorClass = $null;
+<% } -%>
+
+#if there's a vendor class on this, check it exists
+#name AND optionid must be unique (for ensure => present)
+
+if($null -eq $VendorClass){
+  $existingDefinition = Get-DhcpServerv4OptionDefinition -OptionId $OptionId -ErrorAction SilentlyContinue;
+  if($null -eq $existingDefinition){exit 0;}
+
+  if($null -ne $DefinitionName){
+    if($existingDefinition.Name -ne $DefinitionName){
+      Write-Warning ("Definition name match specified for ensure => absent, and mismatch occured. expected: '{0}', got: '{1}' for ID: '{2}' in vendor class: '{3}'" -f $DefinitionName, $existingDefinition.Name, $OptionId, $VendorClass);
+      exit 1;
+    }
+  }
+
+  try{Remove-DhcpServerv4OptionDefinition -OptionId $OptionId -Confirm:$false -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("Failed to remove Option Definition. ID: '{0}', vendor class: '{1}'" -f $OptionId, $VendorClass);
+    exit 1;
+  }
+  Write-Output ("Removed IPv4 Option Definition. ID: '{0}', name: '{1}', vendor class: '{2}'" -f $OptionId, $existingDefinition.Name, $VendorClass);
+}
+else{
+  #there's a vendor class to consider, which means separate numbering for the optionId
+  #if the vendor class not exist, then the option doesnt - this is ok here, ensure => absent
+  #if the option doesnt exist, we want that and dont care about an exception that will be thrown if vendor class not exist
+  try{$existingDefinition = Get-DhcpServerv4OptionDefinition -OptionId $OptionId -VendorClass $VendorClass -ErrorAction Stop;}
+  catch [Exception]{exit 0;}
+
+  #there's no need for another null check
+  if($null -ne $DefinitionName){
+    if($existingDefinition.Name -ne $DefinitionName){
+      Write-Warning ("Definition name match specified for ensure => absent, and mismatch occured. expected: '{0}', got: '{1}' for ID: '{2}' in vendor class: '{3}'" -f $DefinitionName, $existingDefinition.Name, $OptionId, $VendorClass);
+      exit 1;
+    }
+  }
+  try{Remove-DhcpServerv4OptionDefinition -Option $OptionId -VendorClass $VendorClass -Confirm:$false -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("Failed to remove Option Definition. ID: '{0}', vendor class: '{1}'" -f $OptionId, $VendorClass);
+    exit 1;
+  }
+    Write-Output ("Removed IPv4 Option Definition. ID: '{0}', name: '{1}', vendor class: '{2}'" -f $OptionId, $existingDefinition.Name, $VendorClass);
+}
+

@@ -1,0 +1,16 @@
+<%- |
+String[1] $scope_name,
+| -%>
+import-module dhcpserver;
+[String]$ScopeName = '<%= $scope_name %>';
+
+$existing = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Warning "Exec to ensure absent multicast scope name '${ScopeName}' executed, but no scope exists with this name - should have been caught by unless";
+  exit 1;
+}
+
+try{Remove-DhcpServerv4MulticastScope -Name $ScopeName -Force -Confirm:$false -ErrorAction Stop}
+catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+Write-Output "Removed multicast scope name: ${ScopeName}";

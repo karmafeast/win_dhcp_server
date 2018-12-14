@@ -1,0 +1,89 @@
+<%- |
+Integer[1, 255] $option_id,
+Array[String[1]] $value,
+Optional[String[1]] $policy_name = undef,
+Optional[String[1]] $reserved_ip = undef,
+Optional[String[1]] $scope_id = undef,
+Optional[String[1]] $user_class = undef,
+Optional[String[1]] $vendor_class = undef,
+| -%>
+import-module dhcpserver;
+[Int32]$OptionId = <%= $option_id %>;
+[String[]]$Value = @(<%= $value.map |$x| { "'$x'" }.join(', ') %>);
+<% if $policy_name { -%>
+[String]$PolicyName = '<%= $policy_name %>'
+<% } else { -%>
+$PolicyName = $null;
+<% } -%>
+<% if $reserved_ip { -%>
+[String]$ReservedIP = '<%= $reserved_ip %>'
+<% } else { -%>
+$ReservedIP = $null;
+<% } -%>
+<% if $scope_id { -%>
+[String]$ScopeId = '<%= $scope_id %>'
+<% } else { -%>
+$ScopeId = $null;
+<% } -%>
+<% if $user_class { -%>
+[String]$UserClass = '<%= $user_class %>'
+<% } else { -%>
+$UserClass = $null;
+<% } -%>
+<% if $vendor_class { -%>
+[String]$VendorClass = '<%= $vendor_class %>'
+<% } else { -%>
+$VendorClass = $null;
+<% } -%>
+
+if(($null -ne $ScopeId) -and ($null -ne $ReservedIP)){
+  Write-Warning "Cannot specify BOTH scope_id and reserved_ip to an IPv4 Option Value, a reserved IP is in a scope already. check your data. cannot continue.";
+  exit 1;
+}
+
+if(($null -ne $UserClass) -and ($null -ne $PolicyName)){
+  Write-Warning ("cannot specify BOTH User Class and Policy Name to a v4 option value. userclass: '{0}', policy name: '{1}' from data" -f $UserClass, $PolicyName);
+  exit 1;
+}
+
+if($null -ne $PolicyName){
+  try{Get-DhcpServerv4Policy -Name $PolicyName -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning "Non existent policy set as target for IPv4 Option Value. '${PolicyName}' does not exist. cannot continue.";
+    exit 1;
+  }
+}
+
+if($null -ne $ReservedIP){
+  try{$existingReservation = Get-DhcpServerv4Reservation -IPAddress $ReservedIP -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning "Non existent IPv4 reservation set as target for IPv4 Option Value. Reservation for '${ReservedIP}' does not exist. cannot continue.";
+    exit 1;
+  }
+
+  $existingValue = Get-DhcpServerv4OptionValue -vendorclass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -OptionId $OptionId -ReservedIP $ReservedIP -ErrorAction SilentlyContinue;
+
+  if($null -eq $existingValue){exit 1;}
+  if($null -ne (Compare-Object -ReferenceObject $Value -DifferenceObject $existingValue.Value)){exit 1;}
+
+  exit 0;
+}
+if($null -ne $ScopeId) {
+  try{$existingScope = Get-DhcpServerv4Scope -ScopeId $ScopeId -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning "Non existent IPv4 scope set as target for IPv4 Option Value. scope ID '${ScopeId}' does not exist. cannot continue.";
+    exit 1;
+  }
+
+  $existingValue = Get-DhcpServerv4OptionValue -vendorclass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -OptionId $OptionId -ScopeId $ScopeId -ErrorAction SilentlyContinue;
+
+  if($null -eq $existingValue){exit 1;}
+  if($null -ne (Compare-Object -ReferenceObject $Value -DifferenceObject $existingValue.Value)){exit 1;}
+
+  exit 0;
+}
+
+$existingValue = Get-DhcpServerv4OptionValue -vendorclass $VendorClass -UserClass $UserClass -PolicyName $PolicyName -OptionId $OptionId -ErrorAction SilentlyContinue;
+
+if($null -eq $existingValue){exit 1;}
+if($null -ne (Compare-Object -ReferenceObject $Value -DifferenceObject $existingValue.Value)){exit 1;}

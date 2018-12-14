@@ -1,0 +1,16 @@
+<%- |
+Integer[0, 5] $conflict_detection_attempts
+| -%>
+import-module dhcpserver;
+[Int32]$ConflictDetectionAttempts = $<%= $conflict_detection_attempts %>;
+
+$existingSetting = (Get-DhcpServerSetting).ConflictDetectionAttempts;
+
+if($ConflictDetectionAttempts -ne $existingSetting){
+  try{Set-DhcpServerSetting -ConflictDetectionAttempts $ConflictDetectionAttempts -ErrorAction Stop;}
+  catch [Exception]{
+    Write-Warning ("unable to set desired config for 'ConflictDetectionAttempts', existing value: '{0}', desired: '{1}' - {2}" -f $existingSetting, $ConflictDetectionAttempts, $_.Exception.Message);
+    exit 1;
+  }
+  Write-Output ("set desired config for 'ConflictDetectionAttempts', existing value: '{0}', desired: '{1}'" -f $existingSetting, $ConflictDetectionAttempts);
+}

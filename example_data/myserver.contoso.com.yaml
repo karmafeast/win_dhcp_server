@@ -1,0 +1,282 @@
+---
+win_dhcp_server::database_filename: 'c:\windows\system32\dhcp\dhcp.mdb'
+win_dhcp_server::database_backup_path: 'c:\windows\system32\dhcp\backup'
+win_dhcp_server::database_backup_interval_min: 30
+win_dhcp_server::database_cleanup_interval_min: 60
+win_dhcp_server::auditlog_enable: true
+win_dhcp_server::auditlog_path: 'c:\windows\system32\dhcp'
+win_dhcp_server::auditlog_max_size_mb: 70
+win_dhcp_server::auditlog_diskcheck_interval: 50
+win_dhcp_server::auditlog_min_diskspace_mb: 20
+win_dhcp_server::conflict_detection_attempts: 0
+win_dhcp_server::nap_enable: false
+win_dhcp_server::nps_unreachable_action: 'Full'
+win_dhcp_server::activate_policies: true
+win_dhcp_server::enable_v4_allow_filter_list: false
+win_dhcp_server::enable_v4_deny_filter_list: false
+win_dhcp_server::v4_filters:
+  'deny list entries with no description':
+    list: 'Deny'
+    mac_addresses:
+      - 'EE-EE-EE-EE-EE-EE'
+      - 'B9-B9-B9-B9-B9-B9'
+      - 'B8-B8-B8-B8-B8-B8'
+      - 'B7-B7-B7-B7-B7-B7'
+      - 'B6-B6-B6-B6-B6-B6'
+      - 'B5-B5-B5-B5-B5-B5'
+      - 'B4-B4-B4-B4-B4-B4'
+      - 'B3-B3-B3-B3-B3-B3'
+      - 'B2-B2-B2-B2-B2-B2'
+      - 'B1-B1-B1-B1-B1-B1'
+      - 'B0-B0-B0-B0-B0-B0'
+  'AD-AD-AD-AD-AD-AD in Allow':
+    list: 'Allow'
+    description: 'test allow entries from puppet'
+    mac_addresses:
+      - 'AD-AD-AD-AD-AD-AD'
+  'EA-EA-EA-EA-EA-EA in Deny':
+    list: 'Deny'
+    description: 'test deny entries from puppet'
+    mac_addresses:
+      - 'EA-EA-EA-EA-EA-EA'
+win_dhcp_server::v4_interface_bindings:
+  'Ethernet0 - (01-01-01-01-01-01) - this resource will fail with this eg mac':
+    mac_address: '01-01-01-01-01-01'
+    binding_state: true
+win_dhcp_server::v4_scopes:
+  'puppet test scope present 0':
+    scope_name: 'puppet test scope present 0'
+    scope_id: '192.168.98.0'
+    subnet_mask: '255.255.255.0'
+    start_range: '192.168.98.10'
+    end_range: '192.168.98.99'
+    lease_duration: '8.00:00:00'
+    nap_enable: false
+    active_state: 'InActive'
+    scope_type: 'Bootp'
+    activate_policies: true
+  'puppet test scope present 1':
+    scope_name: 'puppet test scope present 1'
+    scope_id: '192.168.198.0'
+    subnet_mask: '255.255.255.0'
+    description: 'puppet set random description text'
+    superscope_name: 'blah'
+    start_range: '192.168.198.110'
+    end_range: '192.168.198.199'
+    lease_duration: '8.00:00:00'
+    nap_enable: false
+    active_state: 'InActive'
+    scope_type: 'Dhcp'
+    activate_policies: true
+win_dhcp_server::v4_multicastscopes:
+  'multi-testy-scope':
+    scope_name: 'multi-testy-scope'
+    start_range: '229.0.0.1'
+    end_range: '229.0.1.3'
+    description: 'descriptive text'
+    expiry_time: '1/1/2021 1:01:01 AM'
+    lease_duration: '20.00:00:00'
+    active_state: 'InActive'
+    ttl: 32
+win_dhcp_server::v4_superscopes:
+  'blah':
+    scope_ids:
+      - '192.168.98.0'
+      - '192.168.198.0'
+win_dhcp_server::v4_exclusions:
+  '192.168.98.50 - 192.168.98.55':
+    scope_id: '192.168.98.0'
+    start_range: '192.168.98.50'
+    end_range: '192.168.98.55'
+  '192.168.198.180 - 192.168.198.180':
+    scope_id: '192.168.198.0'
+    start_range: '192.168.198.180'
+    end_range: '192.168.198.180'
+win_dhcp_server::v4_multicastexclusions:
+  '229.0.0.23_229.0.0.31':
+    scope_name: 'multi-testy-scope'
+    start_range: '229.0.0.23'
+    end_range: '229.0.0.31'
+win_dhcp_server::v4_reservations:
+  'r: 192.168.98.78 in s: 192.168.98.0':
+    scope_id: '192.168.98.0'
+    client_id: '6c-6c-6c-6c-6c-6c'
+    ipaddress: '192.168.98.78'
+    reservation_type: 'Both'
+    reservation_name: 'mynode.contoso.com'
+    description: 'this and that'
+win_dhcp_server::v4_classes:
+  'User - contoso1 - contoso1':
+    class_type: 'User'
+    class_name: 'contoso1'
+    class_data: 'contoso1'
+  'Vendor - contoso - contoso':
+    class_type: 'Vendor'
+    class_name: 'contoso'
+    class_data: 'contoso'
+    description: 'puppet set description'
+win_dhcp_server::v4_optiondefinitions:
+  'option id 252':
+    option_id: 252
+    definition_name: 'WPAD'
+    value_data_type: 'String'
+    default_value:
+      - 'my.proxy.for.autodiscovery'
+  'option id 1 in contoso':
+    vendor_class: 'contoso'
+    option_id: 1
+    definition_name: 'puppetdefinition1'
+    value_data_type: 'String'
+    default_value:
+      - 'contoso'
+    description: 'descriptive text blah blah'
+  'option id 11 in contoso':
+    vendor_class: 'contoso'
+    option_id: 11
+    definition_name: 'puppetdefinition11'
+    value_data_type: 'String'
+    default_value:
+      - 'contoso'
+      - 'MSFT'
+    multivalued: true
+    description: 'descriptive text blah blah'
+win_dhcp_server::v4_optionvalues:
+  'id: 15':
+    option_id: 15
+    value:
+      - 'contoso.com'
+  'id: 1 v: contoso':
+    option_id: 1
+    value:
+      - 'this is a value'
+    vendor_class: 'contoso'
+  'id: 11 v: contoso':
+    option_id: 11
+    value:
+      - 'another_target_to_test'
+    vendor_class: 'contoso'
+  'id: 1 v: contoso u: contoso1':
+    option_id: 1
+    value:
+      - 'targetme_another_value'
+    vendor_class: 'contoso'
+    user_class: 'contoso1'
+  'id: 51 s:192.168.98.0':
+    option_id: 51
+    scope_id: '192.168.98.0'
+    value:
+      - '604800'
+win_dhcp_server::v4_policies:
+  'puppet server policy 0 at s: 0.0.0.0':
+    policy_name: 'puppet server policy 0'
+    scope_id: '0.0.0.0'
+    processing_order: 1
+    condition_operator: 'OR'
+    vendor_class:
+      - 'EQ'
+      - 'Microsoft Options'
+      - 'EQ'
+      - 'contoso'
+    user_class:
+      - 'EQ'
+      - 'contoso1'
+    mac_addresses:
+      - 'EQ'
+      - 'ea-ea-ea-*'
+    client_id:
+      - 'EQ'
+      - '0f-*'
+    fqdn:
+      - 'EQ'
+      - 'contoso.*'
+    relay_agent:
+      - 'EQ'
+      - '0f-1a-*'
+    circuit_id:
+      - 'EQ'
+      - '02-00'
+      - 'EQ'
+      - '01-00'
+    remote_id:
+      - 'EQ'
+      - '0f'
+    subscriber_id:
+      - 'EQ'
+      - '11'
+    lease_duration: '10.00:00:00'
+  'puppet scope policy 0 at s: 192.168.98.0':
+    policy_name: 'puppet scope policy 0'
+    scope_id: '192.168.98.0'
+    processing_order: 1
+    condition_operator: 'OR'
+    vendor_class:
+      - 'EQ'
+      - 'Microsoft Options'
+      - 'EQ'
+      - 'contoso'
+    user_class:
+      - 'EQ'
+      - 'contoso1'
+    mac_addresses:
+      - 'EQ'
+      - 'ea-ea-ea-*'
+    client_id:
+      - 'EQ'
+      - '0f-*'
+    relay_agent:
+      - 'EQ'
+      - '0f-1a-*'
+    circuit_id:
+      - 'EQ'
+      - '02-00'
+      - 'EQ'
+      - '01-00'
+    remote_id:
+      - 'EQ'
+      - '0f'
+    subscriber_id:
+      - 'EQ'
+      - '11'
+    lease_duration: '10.00:00:00'
+win_dhcp_server::v4_policy_ipranges:
+  '192.168.98.44_192.168.98.55 in s: 192.168.98.0':
+    policy_name: 'puppet scope policy 0'
+    scope_id: '192.168.98.0'
+    start_range: '192.168.98.44'
+    end_range: '192.168.98.55'
+win_dhcp_server::v4_dns_settings:
+  'server level settings':
+    dynamic_updates: 'Always'
+    delete_dns_rr_onlease_expiry: true
+    update_dns_rr_for_old_clients: true
+    disable_dns_ptr_rr_update: true
+    name_protection: true
+  'p: puppet server policy 0 in server policies':
+    policy_name: 'puppet server policy 0'
+    dynamic_updates: 'Always'
+    delete_dns_rr_onlease_expiry: true
+    update_dns_rr_for_old_clients: true
+    disable_dns_ptr_rr_update: true
+    name_protection: true
+  '192.168.98.0 scope level dns':
+    scope_id: '192.168.98.0'
+    dynamic_updates: 'Always'
+    delete_dns_rr_onlease_expiry: true
+    update_dns_rr_for_old_clients: true
+    disable_dns_ptr_rr_update: false
+    name_protection: true
+  'r: 192.168.98.78 in s: 192.168.98.0 dns':
+    reserved_ip: '192.168.98.78'
+    dynamic_updates: 'OnClientRequest'
+    delete_dns_rr_onlease_expiry: false
+    update_dns_rr_for_old_clients: false
+    disable_dns_ptr_rr_update: true
+  'p: puppet scope policy 0 in s: 192.168.98.0 dns':
+    policy_name: 'puppet scope policy 0'
+    scope_id: '192.168.98.0'
+    dns_suffix_for_registration: 'foo1.moo1'
+    dynamic_updates: 'OnClientRequest'
+    delete_dns_rr_onlease_expiry: false
+    update_dns_rr_for_old_clients: true
+    disable_dns_ptr_rr_update: true
+    name_protection: true

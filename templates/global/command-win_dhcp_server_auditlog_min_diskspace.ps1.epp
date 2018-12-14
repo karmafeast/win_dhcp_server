@@ -1,0 +1,7 @@
+<%- | Integer $auditlog_min_diskspace | -%>
+import-module dhcpserver;
+[Int32]$auditlog_min_diskspace = <%= $auditlog_min_diskspace %>;
+Write-Output "Setting DHCP Server Audit min disk space >> ${auditlog_min_diskspace}";
+Set-DhcpServerAuditLog -MinMBDiskSpace $auditlog_min_diskspace -Confirm:$false;
+Write-Output "Restarting DHCP Server Service...";
+Restart-Service dhcpserver;

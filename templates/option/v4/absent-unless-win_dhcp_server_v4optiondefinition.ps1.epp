@@ -1,0 +1,22 @@
+<%- |
+Integer[1, 255] $option_id,
+Optional[String[1]] $vendor_class = undef
+| -%>
+import-module dhcpserver;
+[Int32]$OptionId = <%= $option_id %>;
+<% if $vendor_class { -%>
+[String]$VendorClass = '<%= $vendor_class %>'
+<% } else { -%>
+$VendorClass = $null;
+<% } -%>
+
+if($null -eq $VendorClass){
+  $existingDefinition = Get-DhcpServerv4OptionDefinition -OptionId $OptionId -ErrorAction SilentlyContinue;
+  if($null -eq $existingDefinition){exit 0;}
+  exit 1;
+}
+else{
+  try{$existingDefinition = Get-DhcpServerv4OptionDefinition -OptionId $OptionId -VendorClass $VendorClass -ErrorAction Stop;}
+  catch [Exception]{exit 0;}
+  exit 1;
+}

@@ -1,0 +1,9 @@
+<%- | Integer $auditlog_min_diskspace | -%>
+import-module dhcpserver;
+[Int32]$auditlog_min_diskspace = <%= $auditlog_min_diskspace %>;
+[Int32]$existing = (Get-DhcpServerAuditLog).MinMBDiskSpace;
+if($existing -ne $auditlog_min_diskspace){
+Write-Output "Improper Audit Log min disk space: ${existing} - expected ${auditlog_min_diskspace}";
+exit 1;
+}
+exit 0;

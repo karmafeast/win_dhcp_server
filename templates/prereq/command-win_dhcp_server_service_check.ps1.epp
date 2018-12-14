@@ -1,0 +1,3 @@
+<%- | String $servicename | -%>
+Write-Error "PREREQS FAILED ON WINDOWS SERVICE CHECK - check for service <%= $servicename %>";
+exit 1;

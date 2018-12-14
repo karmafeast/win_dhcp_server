@@ -1,0 +1,75 @@
+<%- |
+String[1] $scope_name,
+String[1] $start_range,
+String[1] $end_range,
+Optional[String] $description = undef,
+Optional[String[1]] $expiry_time = undef,
+Optional[String[1]] $lease_duration = undef,
+Optional[Enum['Active', 'InActive']] $active_state = undef,
+Optional[Integer[1, 255]] $ttl = undef,
+| -%>
+import-module dhcpserver;
+[String]$ScopeName = '<%= $scope_name %>';
+[String]$StartRange = '<%= $start_range %>';
+[String]$EndRange = '<%= $end_range %>';
+<% if $description { -%>
+[String]$Description = '<%= $description %>';
+<% } else { -%>
+[String]$Description = '';
+<% } -%>
+<% if $expiry_time { -%>
+[String]$ExpiryTime = '<%= $expiry_time %>';
+<% } else { -%>
+$ExpiryTime = $null;
+<% } -%>
+<% if $lease_duration { -%>
+[String]$LeaseDuration = '<%= $lease_duration %>';
+<% } else { -%>
+$LeaseDuration = $null;
+<% } -%>
+<% if $active_state { -%>
+[String]$ActiveState = '<%= $active_state %>';
+<% } else { -%>
+[String]$ActiveState = 'Active';
+<% } -%>
+<% if $ttl { -%>
+[String]$Ttl = <%= $ttl %>;
+<% } else { -%>
+$Ttl = $null;
+<% } -%>
+
+$multicastregex = '^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$';
+
+if(!($StartRange -match $multicastregex) -or !($EndRange -match $multicastregex)){
+  Write-Error "no valid multicast IPv4 specified for start or end of scope range. valid is 224.0.0.0-239.255.255.255. got start: ${StartRange}, end: ${EndRange}";
+  exit 1;
+}
+
+$existing = Get-DhcpServerv4MulticastScope -Name $ScopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){exit 1;}
+
+if($null -ne $ExpiryTime){
+  if($null -eq $existing.ExpiryTime){exit 1;}
+  else{
+    [System.DateTime]$existingExpiry = (Get-DhcpServerv4MulticastScope -Name $ScopeName).ExpiryTime;
+    [System.DateTime]$targetExpiry = $ExpiryTime;
+    if($existingExpiry -ne $targetExpiry){exit 1;}
+  }
+}
+else{if($null -ne $existing.ExpiryTime){exit 1;}}
+
+if($null -ne $LeaseDuration){
+  [System.TimeSpan]$existingLeaseDuration = (Get-DhcpServerv4MulticastScope -Name $ScopeName).LeaseDuration;
+  [System.TimeSpan]$targetLeaseDuration = $LeaseDuration;
+  if($existingLeaseDuration -ne $targetLeaseDuration){exit 1;}}
+else{if($existing.LeaseDuration.ToString() -ne '30.00:00:00'){exit 1;}}
+
+if($Ttl -ne $null){if($existing.Ttl -ne $Ttl){exit 1;}}
+else{if($existing.Ttl -ne 32){exit 1;}}
+
+if($existing.State -ne $ActiveState){exit 1;}
+
+if($existing.Description -ne $Description){exit 1;}
+
+exit 0;

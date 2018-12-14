@@ -1,0 +1,5 @@
+<%- | Integer $cleanup_interval | -%>
+import-module dhcpserver;
+[Int32]$cleanup_interval = <%= $cleanup_interval %>;
+Write-Output "Setting DHCP Server database cleanup interval >> ${cleanup_interval}";
+Set-DhcpServerDatabase -CleanupInterval $cleanup_interval -Confirm:$false;

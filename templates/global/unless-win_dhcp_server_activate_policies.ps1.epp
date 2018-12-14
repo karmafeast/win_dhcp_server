@@ -1,0 +1,9 @@
+<%- |
+Boolean $activate_policies
+| -%>
+import-module dhcpserver;
+[Boolean]$ActivatePolicies = $<%= $activate_policies %>;
+
+$existingSetting = (Get-DhcpServerSetting).ActivatePolicies;
+
+if($ActivatePolicies -ne $existingSetting){exit 1;}

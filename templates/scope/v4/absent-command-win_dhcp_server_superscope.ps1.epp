@@ -1,0 +1,17 @@
+<%- |
+String[1] $superscope_name
+| -%>
+import-module dhcpserver;
+
+[String]$SuperscopeName = '<%= $superscope_name %>';
+
+$existing =  Get-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -ErrorAction SilentlyContinue;
+
+if($null -eq $existing){
+  Write-Error "Logic Error - no existing Super Scope name: ${SuperscopeName}, command should not have executed";
+  exit 1;
+}
+
+try{Remove-DhcpServerv4Superscope -SuperscopeName $SuperscopeName -Force -Confirm:$false -ErrorAction Stop}
+catch [Exception]{Write-Error $_.Exception.Message; exit 1;}
+Write-Output "Removed IPv4 superscope name: ${SuperscopeName}";

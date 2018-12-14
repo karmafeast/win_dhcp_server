@@ -1,0 +1,48 @@
+<%- |
+Optional[Enum['User', 'Vendor']] $class_type = undef,
+Optional[String[1]] $class_name = undef,
+Optional[String[1]] $class_data = undef
+| -%>
+import-module dhcpserver;
+<% if $class_type { -%>
+[String]$ClassType = '<%= $class_type %>';
+<% } else { -%>
+$ClassType = $null;
+<% } -%>
+<% if $class_name { -%>
+[String]$ClassName = '<%= $class_name %>';
+<% } else { -%>
+$ClassName = $null;
+<% } -%>
+<% if $class_data { -%>
+[String]$ClassData = '<%= $class_data %>'
+<% } else { -%>
+$ClassData = $null;
+<% } -%>
+
+if(($null -eq $ClassName) -and ($null -eq $ClassData)){
+  Write-Warning "null dhcpserver IPv4 class name, and null data for ensure => absent.  check data.  cannot continue.";
+  exit 1;
+}
+
+if($null -ne $ClassName){
+  $existingClass = Get-DhcpServerv4Class -Name $ClassName -ErrorAction SilentlyContinue;
+  if($null -ne $existingClass){
+    if($null -ne $ClassType){
+      if($existingClass.Type -eq $ClassType){exit 1;} #practitioner specified class type explicitly and there is mismatch on ensure => absent
+      exit 0;
+    }
+      exit 1;
+  }
+}
+
+if($null -ne $ClassData){
+  $existingClass = Get-DhcpServerv4Class | where 'AsciiData' -eq $ClassData;
+  if($null -ne $existingClass){
+    if($null -ne $ClassType){
+      if($existingClass.Type -eq $ClassType){exit 1;} #practitioner specified class type explicitly and there is mismatch on ensure => absent
+      exit 0;
+    }
+      exit 1;
+  }
+}

@@ -1,0 +1,6 @@
+<%- | Boolean $enable_v4_allow_filter_list | -%>
+import-module dhcpserver;
+[Boolean]$EnableList = $<%= $enable_v4_allow_filter_list %>;
+
+if(((Get-DhcpServerv4FilterList).Allow) -ne $EnableList){exit 1;}
+

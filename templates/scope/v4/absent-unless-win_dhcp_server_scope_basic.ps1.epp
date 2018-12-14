@@ -1,0 +1,13 @@
+<%- |
+String[1] $scope_id
+| -%>
+import-module dhcpserver;
+[String]$scopeId = '<%= $scope_id %>';
+
+$existing = Get-DhcpServerv4Scope -ScopeId $scopeId -ErrorAction SilentlyContinue;
+
+if($null -ne $existing){
+  exit 1;
+}
+
+exit 0;
