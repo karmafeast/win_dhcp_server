@@ -1,3 +1,4 @@
+# manage DHCP v4 policy
 define win_dhcp_server::policy::v4 (
   String[1] $policy_name,
   String[1] $scope_id                                 = '0.0.0.0', #0.0.0.0 is a server level policy, if other scope level then specify it here

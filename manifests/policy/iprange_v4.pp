@@ -1,3 +1,4 @@
+# manage DHCP v4 policy IP range
 define win_dhcp_server::policy::iprange_v4 (
   String[1] $policy_name,
   String[1] $scope_id,

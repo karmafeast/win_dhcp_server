@@ -1,3 +1,4 @@
+# manage DHCP v4 exclusion range
 define win_dhcp_server::exclusion::v4 (
   String[1] $scope_id,
   String $start_range                                 = '',

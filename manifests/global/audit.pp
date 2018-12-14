@@ -1,3 +1,4 @@
+# manage DHCP server settings related to audit
 class win_dhcp_server::global::audit (
   Boolean $auditlog_enable                            = true,
   String[1] $auditlog_path                            = "${facts['system32']}\\dhcp",
@@ -15,31 +16,31 @@ class win_dhcp_server::global::audit (
     'tag'       => $exec_resource_tags,
   }
 
-  exec { "win_dhcp_server_auditlog_enable":
+  exec { 'win_dhcp_server_auditlog_enable':
     command => epp("${module_name}/global/command-win_dhcp_server_auditlog_enable.ps1.epp", { 'auditlog_enable' => $win_dhcp_server::global::audit::auditlog_enable }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_auditlog_enable.ps1.epp", { 'auditlog_enable' => $win_dhcp_server::global::audit::auditlog_enable }),
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_auditlog_path":
+  exec { 'win_dhcp_server_auditlog_path':
     command => epp("${module_name}/global/command-win_dhcp_server_auditlog_path.ps1.epp", { 'auditlog_path' => $win_dhcp_server::global::audit::auditlog_path }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_auditlog_path.ps1.epp", { 'auditlog_path' => $win_dhcp_server::global::audit::auditlog_path }),
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_auditlog_max_size_mb":
+  exec { 'win_dhcp_server_auditlog_max_size_mb':
     command => epp("${module_name}/global/command-win_dhcp_server_auditlog_max_size.ps1.epp", { 'auditlog_max_size_mb' => $win_dhcp_server::global::audit::auditlog_max_size_mb }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_auditlog_max_size.ps1.epp", { 'auditlog_max_size_mb' => $win_dhcp_server::global::audit::auditlog_max_size_mb }),
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_auditlog_diskcheck_interval":
+  exec { 'win_dhcp_server_auditlog_diskcheck_interval':
     command => epp("${module_name}/global/command-win_dhcp_server_auditlog_diskcheck_interval.ps1.epp", { 'auditlog_diskcheck_interval' => $win_dhcp_server::global::audit::auditlog_diskcheck_interval }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_auditlog_diskcheck_interval.ps1.epp", { 'auditlog_diskcheck_interval' => $win_dhcp_server::global::audit::auditlog_diskcheck_interval }),
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_auditlog_min_diskspace":
+  exec { 'win_dhcp_server_auditlog_min_diskspace':
     command => epp("${module_name}/global/command-win_dhcp_server_auditlog_min_diskspace.ps1.epp", { 'auditlog_min_diskspace' => $win_dhcp_server::global::audit::auditlog_min_diskspace_mb }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_auditlog_min_diskspace.ps1.epp", { 'auditlog_min_diskspace' => $win_dhcp_server::global::audit::auditlog_min_diskspace_mb }),
     *       => $exec_defaults,

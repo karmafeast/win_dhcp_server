@@ -1,3 +1,4 @@
+# manage DHCP Server!
 class win_dhcp_server (
   String[1] $database_filename                                   = "${facts['system32']}\\dhcp\\dhcp.mdb",
   String[1] $database_backup_path                                = "${facts['system32']}\\dhcp\\backup",
@@ -49,7 +50,6 @@ class win_dhcp_server (
     'tag'       => $exec_resource_tags,
   }
 
-  #todo: need filter list enable / disable
   #1./set Database options.
   class { win_dhcp_server::global::database:
     database_filename             => $database_filename,
@@ -268,5 +268,4 @@ class win_dhcp_server (
       }
     }
   }
-
 }

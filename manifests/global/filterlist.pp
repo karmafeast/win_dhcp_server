@@ -1,3 +1,4 @@
+# manage DHCP server settings related to filter list enablement
 class win_dhcp_server::global::filterlist (
   Boolean $enable_v4_allow,
   Boolean $enable_v4_deny,

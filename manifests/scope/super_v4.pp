@@ -1,9 +1,10 @@
+# manage DHCP v4 superscope
 define win_dhcp_server::scope::super_v4 (
   String[1] $superscope_name                          = $title,
   Enum['present', 'absent']$ensure                    = 'present',
   Array[String[1]] $exec_resource_tags                = ['win_dhcp_server', 'win_dhcp_server_superscope', 'win_dhcp_server_superscopev4'],
   Enum['true', 'false', 'onfailure'] $exec_log_output = 'true',
-  Optional[Array[String[1]]] $scope_ids               = undef, #only optional when ensure => absent, otherwise if not specified EPP will boot you
+  Optional[Array[String[1]]] $scope_ids               = undef,
 ) {
   require win_dhcp_server::prereq::check
 

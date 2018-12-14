@@ -1,3 +1,4 @@
+# check prerequisites for proper module exection
 class win_dhcp_server::prereq::check (
   Enum['true', 'false', 'onfailure'] $exec_log_output = 'false',
   Integer[0, 65535] $module_majorversion              = 2,
@@ -29,7 +30,7 @@ class win_dhcp_server::prereq::check (
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_module_check":
+  exec { 'win_dhcp_server_module_check':
     command => epp("${module_name}/prereq/command-win_dhcp_server_module_check.ps1.epp", { 'majorversion' => $win_dhcp_server::prereq::check::module_majorversion }),
     unless  => epp("${module_name}/prereq/unless-win_dhcp_server_module_check.ps1.epp", { 'majorversion' => $win_dhcp_server::prereq::check::module_majorversion }),
     *       => $exec_defaults,

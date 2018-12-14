@@ -1,3 +1,4 @@
+# manage DHCP v4 option value
 define win_dhcp_server::option::value_v4 (
   Integer[1, 255] $option_id,
   Enum['present', 'absent']$ensure                    = 'present',
@@ -10,10 +11,7 @@ define win_dhcp_server::option::value_v4 (
   Optional[String[1]] $user_class                     = undef,
   Optional[String[1]] $vendor_class                   = undef,
 ) {
-  #we're not going to support the crazy inbuilt common params on the backend like -Router.
-  #in this example - Router is optionID 3 in $null vendorclass.  so don't be lazy, define your option values by ID!
-  #remember to create option defintions BEFORE trying to set values for them
-  #i.e. - you need a option 252 in vendorclass $null (maybe named WPAD) prior to being able to set a value for that defined option
+
   require win_dhcp_server::prereq::check
 
   $exec_defaults = {

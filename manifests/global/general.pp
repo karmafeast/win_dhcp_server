@@ -1,3 +1,4 @@
+# manage general DHCP server settings
 class win_dhcp_server::global::general (
   Boolean $nap_enable                                            = false,
   Enum['Full', 'Restricted', 'NoAccess'] $nps_unreachable_action = 'Full',
@@ -14,25 +15,25 @@ class win_dhcp_server::global::general (
     'tag'       => $exec_resource_tags,
   }
 
-  exec { "win_dhcp_server_nap_enable":
+  exec { 'win_dhcp_server_nap_enable':
     command => epp("${module_name}/global/command-win_dhcp_server_nap_enable.ps1.epp", { 'nap_enable' => $win_dhcp_server::global::general::nap_enable }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_nap_enable.ps1.epp", { 'nap_enable' => $win_dhcp_server::global::general::nap_enable }),
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_nps_unreachable_action":
+  exec { 'win_dhcp_server_nps_unreachable_action':
     command => epp("${module_name}/global/command-win_dhcp_server_nps_unreachable_action.ps1.epp", { 'nps_unreachable_action' => $win_dhcp_server::global::general::nps_unreachable_action }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_nps_unreachable_action.ps1.epp", { 'nps_unreachable_action' => $win_dhcp_server::global::general::nps_unreachable_action }),
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_activate_policies":
+  exec { 'win_dhcp_server_activate_policies':
     command => epp("${module_name}/global/command-win_dhcp_server_activate_policies.ps1.epp", { 'activate_policies' => $win_dhcp_server::global::general::activate_policies }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_activate_policies.ps1.epp", { 'activate_policies' => $win_dhcp_server::global::general::activate_policies }),
     *       => $exec_defaults,
   }
 
-  exec { "win_dhcp_server_conflict_detection_attempts":
+  exec { 'win_dhcp_server_conflict_detection_attempts':
     command => epp("${module_name}/global/command-win_dhcp_server_conflict_detection_attempts.ps1.epp", { 'conflict_detection_attempts' => $win_dhcp_server::global::general::conflict_detection_attempts }),
     unless  => epp("${module_name}/global/unless-win_dhcp_server_conflict_detection_attempts.ps1.epp", { 'conflict_detection_attempts' => $win_dhcp_server::global::general::conflict_detection_attempts }),
     *       => $exec_defaults,

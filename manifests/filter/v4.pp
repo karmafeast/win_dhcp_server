@@ -1,3 +1,4 @@
+# manage DHCP v4 filter list entry
 define win_dhcp_server::filter::v4 (
   Enum['Allow', 'Deny'] $list,
   Array[String[1]] $mac_addresses,

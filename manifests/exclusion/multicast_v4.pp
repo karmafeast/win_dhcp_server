@@ -1,3 +1,4 @@
+# manage DHCP v4 multicast exclusion range
 define win_dhcp_server::exclusion::multicast_v4 (
   String[1] $scope_name,
   String $start_range                                 = '',

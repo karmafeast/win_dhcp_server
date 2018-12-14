@@ -1,10 +1,11 @@
+# manage DHCP v4 class
 define win_dhcp_server::class::v4 (
   Enum['present', 'absent']$ensure                    = 'present',
   Array[String[1]] $exec_resource_tags                = ['win_dhcp_server', 'win_dhcp_server_class', 'win_dhcp_server_classv4'],
   Enum['true', 'false', 'onfailure'] $exec_log_output = 'true',
-  Optional[Enum['User', 'Vendor']] $class_type        = undef, #if ensure => absent and undef, need to remove any found class, in both user and vendor
-  Optional[String[1]] $class_data                     = undef, #ensure => absent need to support removal via name OR ascii data
-  Optional[String[1]] $class_name                     = undef, #ensure => absent need to support removal via name OR ascii data
+  Optional[Enum['User', 'Vendor']] $class_type        = undef,
+  Optional[String[1]] $class_data                     = undef,
+  Optional[String[1]] $class_name                     = undef,
   Optional[String] $description                       = undef
 ) {
 

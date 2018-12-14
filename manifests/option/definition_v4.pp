@@ -1,3 +1,4 @@
+# manage DHCP v4 option definition
 define win_dhcp_server::option::definition_v4 (
   Integer[1, 255] $option_id,
   Enum['present', 'absent']$ensure                                                                                                               = 'present',

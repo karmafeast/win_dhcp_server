@@ -1,7 +1,8 @@
+# manage DHCP v4 IP reservation
 define win_dhcp_server::reservation::v4 (
-  String[1] $scope_id, #scope id in which the reservation is created
-  String[1] $client_id, #typically the mac address for which the reservation is being made
-  String $ipaddress                                         = '', #required for ensure present as non empty
+  String[1] $scope_id,
+  String[1] $client_id,
+  String $ipaddress                                         = '', #required for ensure present as non empty by EPP
   Enum['present', 'absent']$ensure                          = 'present',
   Optional[String] $reservation_name                        = undef,
   Optional[String] $description                             = undef,

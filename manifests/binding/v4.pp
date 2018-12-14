@@ -1,3 +1,4 @@
+# manage binding for IPv4 DHCP server services
 define win_dhcp_server::binding::v4 (
   String[1] $mac_address                              = $title,
   Enum['present', 'absent']$ensure                    = 'present',

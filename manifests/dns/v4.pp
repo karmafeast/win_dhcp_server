@@ -1,3 +1,5 @@
+# manage DHCP v4 DNS settings
+#N.B. - there is not a concept of absent for this resource, in that the backend object have dns settings on them, if you ensure absent, we will reset to server level values.
 define win_dhcp_server::dns::v4 (
   Enum['present', 'absent']$ensure                                      = 'present',
   Array[String[1]] $exec_resource_tags                                  = ['win_dhcp_server', 'win_dhcp_server_dnssetting', 'win_dhcp_server_dnssettingv4'],
@@ -6,14 +8,13 @@ define win_dhcp_server::dns::v4 (
   Optional[String[1]] $reserved_ip                                      = undef,
   Optional[String[1]] $policy_name                                      = undef,
   Optional[Boolean] $delete_dns_rr_onlease_expiry                       = undef, #!! can only be set if the DynamicUpdate parameter is set to Always or OnClientRequest.
-  Optional[Boolean] $disable_dns_ptr_rr_update                          = undef, #If this value is $True, the DHCP server performs registration for only A records. If this value is $False, the server performs registration of both A and PTR records.
+  Optional[Boolean] $disable_dns_ptr_rr_update                          = undef,
   Optional[String[1, 256]] $dns_suffix_for_registration                 = undef, #!! Do not specify this parameter unless you specify the PolicyName parameter.
   Optional[Enum['Always', 'Never', 'OnClientRequest']] $dynamic_updates = undef,
   Optional[Boolean] $name_protection                                    = undef,
   Optional[Boolean] $update_dns_rr_for_old_clients                      = undef
 ) {
 
-  #N.B. - there is not a concept of absent for this resource, in that the backend object have dns settings on them, if you ensure absent, we will reset to server level values.
   require win_dhcp_server::prereq::check
 
   $exec_defaults = {
