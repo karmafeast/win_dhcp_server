@@ -2,7 +2,7 @@
 Integer[0, 5] $conflict_detection_attempts
 | -%>
 import-module dhcpserver;
-[Int32]$ConflictDetectionAttempts = $<%= $conflict_detection_attempts %>;
+[Int32]$ConflictDetectionAttempts = <%= $conflict_detection_attempts %>;
 
 $existingSetting = (Get-DhcpServerSetting).ConflictDetectionAttempts;
 
