@@ -1,6 +1,6 @@
 {
   "name": "karmafeast-win_dhcp_server",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "author": "karmafeast",
   "summary": "management of windows DHCP services",
   "license": "Apache-2.0",
